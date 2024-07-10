@@ -1,0 +1,63 @@
+dependencies:
+  espressif/cmake_utilities:
+    component_hash: 6983933aa165d5c1bd8ff3716f8873b4dd8577020d9176d22d8568b139ff8753
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 0.1.0
+  espressif/iot_usbh:
+    component_hash: 6248b9fb5c33ee7a0572c75947d79ec9f1ef44c0a2dd123665b22424d49e956e
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 0.2.1
+  espressif/iot_usbh_cdc:
+    component_hash: ea4c77448c25661585e9219e2d65df479ac35102e93205a6085cdb75fbf48c67
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 0.2.2
+  espressif/iot_usbh_modem:
+    component_hash: 7dbbe32683f7e7e8755c1ad4906c129cd7d3524e9e256794d6391270d0146158
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 0.2.1
+  espressif/jsmn:
+    component_hash: d80350c41bbaa827c98a25b6072df00884e72f54885996fab4a4f0aebce6b6c3
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 1.1.0
+  espressif/json_parser:
+    component_hash: d74b81729ad06ec11ff5eb5b1b0d7df1d00e6027fc11471f4b139c70dcf1b1e4
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 1.0.3
+  espressif/led_indicator:
+    component_hash: daa844acf7886b78fa4ea25c9dd6a4fb3a83f793a307187026be1c237fba632a
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 0.3.0
+  espressif/led_strip:
+    component_hash: fc66f8544851132555bc668475f7b68acd6a211c8075db5ce1951cbfa27dfb88
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 2.5.4
+  idf:
+    component_hash: null
+    source:
+      type: idf
+    version: 5.2.2
+  igrr/libnmea:
+    component_hash: d6e78e853e75882c17cd4f200d110b84824e728cefbb84152227f0f4f98d8a50
+    source:
+      service_url: https://api.components.espressif.com/
+      type: service
+    version: 0.2.1
+manifest_hash: 55effbe623046114911fb929e3a7eb014800cdfe8a54a2f06325ff826c85e609
+target: esp32s3
+version: 1.0.0

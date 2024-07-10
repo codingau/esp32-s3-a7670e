@@ -1,0 +1,42 @@
+v1.0 2024-06-28 nyx 创建该记录。
+
+以下内容，需要打开【SDK配置编辑器】设置，配置编辑器没有的条目需要直接编写配置文件。
+
+1
+Partition Table: Custon partition table CSV
+
+2
+Flash size: 16MB
+CPU frequency: 240HZ
+
+3
+Enable PPP support: yes
+Enable PAP support: yes
+
+4
+Open web configuration: No
+Choose Modem Board: User Defined
+Ping manual address: No
+Auto update Wi-Fi soft ap DNS address: No
+WiFi softap default DNS address: 8.8.8.8
+
+5
+Support for external, SPI-connected RAM: Yes
+Set RAM clock speed: 80MHz
+Try to allocate memories of WiFi and LWIP in SPIRAM firstly. If failed, allocate internal memory: Yes
+FreeRTOS --> Kernel --> configTICK_RATE_HZ: 1000   [CONFIG_FREERTOS_HZ=1000]
+
+6
+Enable IP forwarding: yes   [CONFIG_LWIP_IP_FORWARD=y]
+Enable NAT (new/experimental): yes   [CONFIG_LWIP_IPV4_NAPT=y]
+Enable NAT Port Mapping (new/experimental): yes   [CONFIG_LWIP_IPV4_NAPT_PORTMAP=y]
+
+7 网络自定义配置
+Set Modem APN: yesinternet
+Set SIM PIN: 0000
+WiFi SSID: ldv
+WiFi Password: ldvyxxxy
+
+8 启用蓝牙
+Bluetooth: yes
+Host: NimBLE - BLE only

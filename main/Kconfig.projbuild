@@ -1,0 +1,66 @@
+menu "4G Modem Config"
+
+    config ENABLE_WEB_ROUTER
+        bool "Open web configuration"
+        default y
+        help
+            Open the web router, you can configure the system parameters
+
+    config WEB_MOUNT_POINT  
+        string "Website mount point in VFS"
+        default "/spiffs"
+        depends on ENABLE_WEB_ROUTER
+        help
+            Specify the mount point in VFS.
+
+    config WEB_USERNAME
+        string "Default login username"
+        default "esp32"
+        depends on ENABLE_WEB_ROUTER
+        help
+            Default username for logging in to the server.
+
+    config WEB_PASSWORD
+        string "Default login password"
+        default "12345678"
+        depends on ENABLE_WEB_ROUTER
+        help
+            Default password for logging in to the server.
+
+    config ENTER_PPP_DURING_INIT
+        bool "Auto enter ppp mode"
+        default y
+        help
+            If not enable, just stay in command mode, user can call modem_board_ppp_start to enter network mode later
+
+    config AUTO_UPDATE_DNS
+        bool "Auto update Wi-Fi soft ap DNS address"
+        default y
+        help
+            If true using dns address got from ppp
+
+    config PING_NETWORK
+        bool "Ping network to check the state"
+        default y
+
+    config PING_MANUAL
+        bool "Ping manual address"
+        default y
+
+    config PING_MANUAL_ADDR
+        string "Manual address"
+        default "8.8.8.8"
+        depends on PING_MANUAL
+
+    config PING_TIMEOUT
+        int "ping timeout value (ms)"
+        default 2000
+        depends on PING_NETWORK
+
+    config DUMP_SYSTEM_STATUS
+        bool "Dump system task status"
+        default n
+        help
+            Dump system task status, stack left, cpu load, etc.
+
+endmenu

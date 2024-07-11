@@ -2,14 +2,15 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "nvs_flash.h"
 #include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_netif.h"
+#include "esp_event.h"
 #include "nmea.h"
 #include "app_led.h"
 #include "app_sd.h"
@@ -198,6 +199,7 @@ void app_main(void) {
         }
     }
 
+    // 初始化 BLE，失败不终止运行。
     esp_err_t ble_ret = app_ble_init();
     if (ble_ret != ESP_OK) {
         app_led_error_num(8);// led 红色 n 次。

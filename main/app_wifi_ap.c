@@ -1,5 +1,5 @@
 /**
- * @brief   WIFI AP 初始化。
+ * @brief   WIFI AP 初始化，给其它外围设备供网。
  *
  * @author  nyx
  * @date    2024-06-28

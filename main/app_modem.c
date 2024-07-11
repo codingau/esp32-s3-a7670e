@@ -1,10 +1,9 @@
 /**
- * @brief   MODEM 初始化。
+ * @brief   MODEM 初始化，上网功能。
  *
  * @author  nyx
  * @date    2024-06-28
  */
-
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_event.h"

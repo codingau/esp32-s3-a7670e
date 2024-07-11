@@ -1,5 +1,5 @@
 /**
- * @brief   LED 闪灯状态控制。
+ * @brief   LED 初始化，闪灯状态控制。
  *
  * @author  nyx
  * @date    2024-06-28
@@ -52,7 +52,7 @@ static uint32_t app_led_status_array[10][3] = {
  // }
 
  /**
-  * @brief 显示几次红灯。
+  * @brief 设置红灯闪烁次数。
   * @param num
   */
 void app_led_error_num(uint32_t num) {

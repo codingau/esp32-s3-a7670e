@@ -1,5 +1,5 @@
 /**
- * @brief   MQTT 初始化。
+ * @brief   MQTT 初始化，上传数据功能。
  *
  * @author  nyx
  * @date    2024-07-08

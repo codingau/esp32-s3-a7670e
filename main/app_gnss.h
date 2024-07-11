@@ -1,10 +1,16 @@
+/**
+ * @brief   GNSS 初始化，获取定位数据。
+ *
+ * @author  nyx
+ * @date    2024-06-28
+ */
 #pragma once
 
 #include <pthread.h>
 
-/**
- * @brief GNSS 数据结构。
- */
+ /**
+  * @brief GNSS 数据结构。
+  */
 typedef struct {
 
     struct tm date_time;                // 日期和时间。
@@ -30,5 +36,8 @@ typedef struct {
 
 } app_gnss_data_t;
 
+/**
+ * @brief 初始化函数。
+ * @return
+ */
 esp_err_t app_gnss_init(void);
-

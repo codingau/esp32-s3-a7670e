@@ -1,5 +1,5 @@
 /**
- * @brief   MQTT 初始化。
+ * @brief   SNTP 初始化，同步系统时间。
  *
  * @author  nyx
  * @date    2024-07-08

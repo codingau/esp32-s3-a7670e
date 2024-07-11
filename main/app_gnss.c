@@ -1,5 +1,5 @@
 /**
- * @brief   GNSS 初始化。
+ * @brief   GNSS 初始化，获取定位数据。
  *
  * @author  nyx
  * @date    2024-06-28

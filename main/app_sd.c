@@ -1,5 +1,5 @@
 /**
- * @brief   SD 卡初始化，文件读写。
+ * @brief   SD 卡初始化，本地文件读写。
  *
  * @author  nyx
  * @date    2024-06-28

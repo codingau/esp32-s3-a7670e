@@ -1,5 +1,5 @@
 /**
- * @brief   BLE 初始化。
+ * @brief   BLE 初始化，蓝牙接近开关功能。
  *
  * @author  nyx
  * @date    2024-07-10
@@ -40,12 +40,11 @@ _Atomic int64_t app_ble_disc_time = ATOMIC_VAR_INIT(0);
 static int app_ble_gap_event(struct ble_gap_event* event, void* arg) {
     switch (event->type) {
         case BLE_GAP_EVENT_DISC:
-            // 处理扫描结果
             // ESP_LOGI(TAG, "------ BLE Address: %02x:%02x:%02x:%02x:%02x:%02x",
             //     event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2],
             //     event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
             int64_t time_us = esp_timer_get_time();
-            atomic_store(&app_ble_disc_time, time_us);
+            atomic_store(&app_ble_disc_time, time_us);// 更新最后扫描到的时间。
             break;
         default:
             break;
@@ -80,7 +79,7 @@ void app_ble_gap_discovery(void) {
 static void app_ble_host_task(void* param) {
     nimble_port_run();// 此函数会被阻塞，只有执行 nimble_port_stop() 时，此函数才会返回。
     // 以下的的任何代码都不会被执行。
-    nimble_port_freertos_deinit();
+    nimble_port_freertos_deinit();// 此行永远不会被执行。
 }
 
 /**
@@ -88,7 +87,10 @@ static void app_ble_host_task(void* param) {
  * @return
  */
 esp_err_t app_ble_init(void) {
-    nimble_port_init();
+    esp_err_t ret = nimble_port_init();
+    if (ret != ESP_OK) {
+        return ret;
+    }
     ble_hs_cfg.sync_cb = app_ble_gap_discovery;
     nimble_port_freertos_init(app_ble_host_task);
     return ESP_OK;

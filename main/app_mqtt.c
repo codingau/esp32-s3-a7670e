@@ -28,10 +28,12 @@ static esp_mqtt_client_handle_t mqtt5_client;
 
 /**
  * @brief MQTT 发消息给服务器。
- * @param message
+ * @param msg
+ * @return message_id of the publish message (for QoS 0 message_id will always
+ *          be zero) on success. -1 on failure, -2 in case of full outbox.
  */
-void app_mqtt_publish(char message[]) {
-    esp_mqtt_client_publish(mqtt5_client, APP_MQTT_PUBLISH_TOPIC, message, strlen(message), APP_MQTT_QOS, 0);
+int app_mqtt_publish(char* msg) {
+    return esp_mqtt_client_publish(mqtt5_client, APP_MQTT_PUBLISH_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
 }
 
 /**
@@ -45,13 +47,16 @@ void app_mqtt_publish(char message[]) {
 static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {
     switch ((esp_mqtt_event_id_t)event_id) {
         case MQTT_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "------ MQTT 已连接！");
+            ESP_LOGI(TAG, "------ MQTT 事件：已连接。");
             break;
         case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "------ MQTT 断开连接！");
+            ESP_LOGI(TAG, "------ MQTT 事件：断开连接！");
+            break;
+        case MQTT_EVENT_PUBLISHED:
+            // ESP_LOGI(TAG, "------ MQTT 事件：发布完成！");
             break;
         default:
-            ESP_LOGI(TAG, "------ MQTT 其它事件，事件 ID：%ld", event_id);
+            ESP_LOGI(TAG, "------ MQTT 其它事件。EVENT ID：%ld", event_id);
             break;
     }
 }
@@ -63,7 +68,7 @@ static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, in
  */
 esp_err_t app_mqtt_init(void) {
 
-    char will_msg[] = "";//app_ap_mac_addr;
+    char will_msg[] = APP_MQTT_WILL_MSG;
 
     esp_mqtt_client_config_t mqtt5_cfg = {
         .broker.address.uri = APP_MQTT_URI,

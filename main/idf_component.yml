@@ -1,11 +1,10 @@
 dependencies:
+  espressif/jsmn: "^1.1.0"
   igrr/libnmea: "^0.2.1"
   idf: ">=4.4.1"
   cmake_utilities: "0.*"
   led_indicator:
     version: "~0.3.0"
-  json_parser:
-    version: "1.0.3"
   iot_usbh_modem:
     version: ">=0.2.1"
   espressif/led_strip: "^2.5.4"

@@ -1,7 +1,13 @@
+/**
+ * @brief   开发板主函数。
+ *
+ * @author  nyx
+ * @date    2024-07-11
+ */
 #include <stdio.h>
-#include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -11,7 +17,9 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_event.h"
+#include "cJSON.h"
 #include "nmea.h"
+
 #include "app_led.h"
 #include "app_sd.h"
 #include "app_wifi_ap.h"
@@ -20,75 +28,112 @@
 #include "app_mqtt.h"
 #include "app_ble.h"
 #include "app_gnss.h"
+#include "app_json.h"
+#include "app_main.h"
+#include "app_config.h"
 
-/**
-* @brief 日志 TAG。
-*/
+ /**
+ * @brief 日志 TAG。
+ */
 static const char* TAG = "app_main";
 
 /**
- * @brief 推送 JSON 数据结构。
+ * @brief 是否写数据到 sd 卡。
  */
-typedef struct {
+static bool is_app_write_sd = false;
 
-    char dev_addr[18];      // 设备地址。
-    char dev_time[24];      // 设备时间。
-    int start_time;         // 系统启动以后的秒数。
-    int ble_time;           // 最后一次扫描到蓝牙开关的秒数。
-
-    char gnss_time[24];     // GNSS 时间。
-    bool valid;             // 有效性。
-    int sat;                // 卫星数。
-    double alt;             // 高度，默认单位：M。
-
-    int lat_deg;            // 纬度，度。
-    double lat_min;         // 纬度，分。
-    char lat_dir;           // 纬度方向。
-
-    int lon_deg;            // 经度，度。
-    double lon_min;         // 经度，分。
-    char lon_dir;           // 经度方向。
-
-    float speed;            // 速度，默认单位：节。
-
-    double trk_deg;         // 航向角度。
-    double mag_deg;         // 磁偏角度。
-    char mag_dir;           // 磁偏方向。
-
-    // 温度。
-    // 湿度。
-    // 烟雾。
-    // 电压。
-
-} app_main_data_t;
+/**
+ * @brief 是否写数据到网络。
+ */
+static bool is_app_write_4g = false;
 
 /**
  * @brief 初始化推送数据。
  */
-app_main_data_t app_main_data = {
-    .dev_addr = "00-00-00-00-00-00",        // 初始全部为 0
-    .dev_time = "1970-01-01T00:00:00.000",  // 初始化为起始时间。
-    .gnss_time = "1970-01-01T00:00:00.000", // 初始化为起始时间。
-    .start_time = 0,                        // 初始为 0。
-    .ble_time = 0,                          // 初始为 0。
-    .valid = false,                         // 有效性设为 false
-    .sat = 0,                               // 卫星数设为 0
-    .alt = 0.0,                             // 高度设为 0.0 米。
-    .lat_deg = 0,                           // 纬度度数设为 0
-    .lat_min = 0.0,                         // 纬度分数设为 0.0
-    .lat_dir = NMEA_CARDINAL_DIR_SOUTH,     // 默认纬度方向设为南半球。
-    .lon_deg = 0,                           // 经度度数设为 0
-    .lon_min = 0.0,                         // 经度分数设为 0.0
-    .lon_dir = NMEA_CARDINAL_DIR_EAST,      // 默认经度方向设为东半球。
-    .speed = 0.0,                           // 速度设为 0.0 节。
-    .trk_deg = 0.0,                         // 航向角度。
-    .mag_deg = 0.0,                         // 磁偏角度。
+static app_main_data_t cur_data = {
+    .dev_addr = "00-00-00-00-00-00",        // 初始全部为 0。
+    .dev_time = "1970-01-01T00:00:00.000T", // 初始化为起始时间。
+    .log_ts = 0,                            // 初始为 0。
+    .ble_ts = 0,                            // 初始为 0。
+    .gnss_time = "1970-01-01T00:00:00.000T",// 初始化为起始时间。
+    .gnss_valid = false,                    // 有效性为 false。
+    .sat = 0,                               // 初始卫星数为 0。
+    .alt = 0.0,                             // 初始高度设为 0.0 米。
+    .lat = 0.0,                             // 纬度。
+    .lon = 0.0,                             // 经度。
+    .spd = 0.0,                             // 速度。
+    .trk = 0.0,                             // 航向角度。
     .mag_dir = NMEA_CARDINAL_DIR_EAST,      // 磁偏方向。
 };
 
-static bool is_app_write_sd = false;   // 写数据到 sd 卡。
-static bool is_app_write_4g = false;   // 写数据到网络。
+/**
+ * @brief 获取当前 UTC 时间字符串，并使用 ISO 8601 标准格式化字符串。
+ * @param buffer
+ * @param buffer_size
+ */
+void get_cur_utc_time(char* buffer, size_t buffer_size) {
+    struct timeval tv;
+    struct tm timeinfo;
+    gettimeofday(&tv, NULL);// 获取当前时间，秒和微秒。
+    gmtime_r(&tv.tv_sec, &timeinfo); // 转换数据格式，秒的部分。
+    strftime(buffer, buffer_size - 1, "%Y-%m-%dT%H:%M:%S", &timeinfo);// 格式化时间，精确到秒。当前的格式是：2024-07-11T02:49:55
+    int millisec = tv.tv_usec / 1000;// 计算毫秒。
+    snprintf(buffer + strlen(buffer), buffer_size - strlen(buffer) - 1, ".%03dZ", millisec);// 追加毫秒字符串。返回时间格式：2024-07-11T02:49:55.148Z
+}
 
+/**
+ * @brief 获取 GNSS UTC 时间字符串，并使用 ISO 8601 标准格式化字符串。
+ * @param buffer
+ */
+void get_gnss_utc_time(char* buffer, size_t buffer_size) {
+    struct tm timeinfo = app_gnss_data.date_time;
+    strftime(buffer, buffer_size, "%Y-%m-%dT%H:%M:%SZ", &timeinfo);// GNSS 时间没有毫秒数。
+}
+
+/**
+ * @brief 循环任务。
+ * @param
+ */
+void app_main_loop_task(void) {
+    get_cur_utc_time(cur_data.dev_time, sizeof(cur_data.dev_time));// 设备时间。
+    cur_data.log_ts = esp_log_timestamp() / 1000;// 系统启动以后的秒数。
+    cur_data.ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
+
+    pthread_mutex_lock(&app_gnss_data.mutex);
+    get_gnss_utc_time(cur_data.gnss_time, sizeof(cur_data.gnss_time));// GNSS 时间。
+    cur_data.gnss_valid = app_gnss_data.valid;// 有效性。
+    cur_data.sat = app_gnss_data.sat;// 卫星数。
+    cur_data.alt = app_gnss_data.alt;// 高度，默认单位：M。
+    cur_data.lat = app_gnss_data.lat;// 纬度。
+    cur_data.lon = app_gnss_data.lon;// 经度。
+    cur_data.spd = app_gnss_data.spd;// 速度，默认单位：节。
+    cur_data.trk = app_gnss_data.trk;// 航向角度。
+    cur_data.mag = app_gnss_data.mag;// 磁偏角度。
+    pthread_mutex_unlock(&app_gnss_data.mutex);
+
+    if (cur_data.log_ts - cur_data.ble_ts > APP_BLE_LEAVE_TIMEOUT) {// 如果蓝牙开关离开 1 分钟，则关闭。
+        app_ble_gpio_set_level(0);
+    } else {
+        app_ble_gpio_set_level(1);// 如果蓝牙开关在 1 分钟内，则开启。
+    }
+
+    char* json = app_json_serialize(&cur_data);
+
+    // 推送数据。
+    int ret = app_mqtt_publish(json);
+    if (ret < 0) {// 发送失败。
+        ESP_LOGI(TAG, "------ ---------------- 发送失败");
+    } else {
+
+    }
+    ESP_LOGI(TAG, "------ JSON ------ %s", json);
+    cJSON_free(json);
+}
+
+/**
+ * @brief 主函数，系统启动，开始循环任务。
+ * @param
+ */
 void app_main(void) {
 
     // 初始化 LED，失败不终止运行。
@@ -153,7 +198,7 @@ void app_main(void) {
 
     // 初始化 WIFI 热点。没有热点还能凑合着跑，热点是为了其它功能提供上网服务，不影响本系统运行。
     if (netif_ret == ESP_OK) {
-        esp_err_t wifi_ret = app_wifi_ap_init(app_main_data.dev_addr);
+        esp_err_t wifi_ret = app_wifi_ap_init(cur_data.dev_addr);
         if (wifi_ret != ESP_OK) {
             app_led_error_num(4);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 WIFI 热点：失败！");
@@ -226,27 +271,18 @@ void app_main(void) {
     }
 
     // 开启一个无限循环的主任务，每隔 1 秒写一次数据。
-    // const TickType_t task_period = pdMS_TO_TICKS(1000);  // 1秒
-    // while (1) {
-    //     TickType_t start_tick = xTaskGetTickCount();// 开始时间。
+    const TickType_t task_period = pdMS_TO_TICKS(1000);  // 1秒
+    while (1) {
+        TickType_t start_tick = xTaskGetTickCount();// 开始时间。
 
-    //     ESP_LOGI(TAG, "------------------------- %lu", esp_log_timestamp());
+        app_main_loop_task();// 循环任务。
 
-
-    //     vTaskDelay(pdMS_TO_TICKS(500));// 模拟任务执行时间
-
-
-    //     TickType_t end_tick = xTaskGetTickCount();// 结束时间。
-    //     ESP_LOGI(TAG, "Task actual execution time: %lu ticks", end_tick - start_tick);
-
-
-    //     ESP_LOGI(TAG, "++++++++++++++++++++++ %lu", esp_log_timestamp());
-
-    //     TickType_t task_duration = end_tick - start_tick;
-    //     if (task_duration > task_period) {// 是否需要延时至下一个周期。
-    //         vTaskDelay(task_period - (task_duration % task_period));
-    //     } else {
-    //         vTaskDelay(task_period - task_duration);
-    //     }
-    // }
+        TickType_t end_tick = xTaskGetTickCount();// 结束时间。
+        TickType_t task_duration = end_tick - start_tick;
+        if (task_duration > task_period) {// 是否需要延时至下一个周期。
+            vTaskDelay(task_period - (task_duration % task_period));
+        } else {
+            vTaskDelay(task_period - task_duration);
+        }
+    }
 }

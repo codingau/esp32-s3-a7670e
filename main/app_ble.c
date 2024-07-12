@@ -18,18 +18,36 @@
 #include "host/ble_hs.h"
 #include "esp_nimble_hci.h"
 #include "host/util/util.h"
+#include "driver/gpio.h"
 
 #include "app_config.h"
 
  /**
  * @brief 日志 TAG。
  */
- // static const char* TAG = "app_ble";
+static const char* TAG = "app_ble";
 
 /**
  * @brief 蓝牙钥匙最后刷新时间。
  */
-_Atomic int64_t app_ble_disc_time = ATOMIC_VAR_INIT(0);
+_Atomic int app_ble_disc_ts = ATOMIC_VAR_INIT(-3600000);// 提前一小时的毫秒值，不管以后怎么改参数也应该够用了。
+
+/**
+ * @brief 蓝牙开关控制的针脚，是否输出高电平。
+ *          冗余设计，两个针脚同时开关。接线的时候，随便接一条就行了。
+ * @param level
+ */
+void app_ble_gpio_set_level(uint32_t level) {
+    int cur_level = gpio_get_level(APP_BLE_GPIO_OUT_13);
+    if (cur_level != level) {
+        gpio_set_level(APP_BLE_GPIO_OUT_13, level);
+        ESP_LOGI(TAG, "------ BLE GPIO 电平状态改变: %lu", level);
+    }
+    cur_level = gpio_get_level(APP_BLE_GPIO_OUT_14);
+    if (cur_level != level) {
+        gpio_set_level(APP_BLE_GPIO_OUT_14, level);
+    }
+}
 
 /**
  * @brief 发现设备后的事件。
@@ -43,8 +61,7 @@ static int app_ble_gap_event(struct ble_gap_event* event, void* arg) {
             // ESP_LOGI(TAG, "------ BLE Address: %02x:%02x:%02x:%02x:%02x:%02x",
             //     event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2],
             //     event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
-            int64_t time_us = esp_timer_get_time();
-            atomic_store(&app_ble_disc_time, time_us);// 更新最后扫描到的时间。
+            atomic_store(&app_ble_disc_ts, esp_log_timestamp());// 更新最后扫描到的时间。
             break;
         default:
             break;
@@ -87,11 +104,20 @@ static void app_ble_host_task(void* param) {
  * @return
  */
 esp_err_t app_ble_init(void) {
-    esp_err_t ret = nimble_port_init();
-    if (ret != ESP_OK) {
-        return ret;
+    esp_err_t ble_ret = nimble_port_init();
+    if (ble_ret != ESP_OK) {
+        return ble_ret;
     }
     ble_hs_cfg.sync_cb = app_ble_gap_discovery;
     nimble_port_freertos_init(app_ble_host_task);
-    return ESP_OK;
+
+    // 初始化 GPIO。
+    gpio_config_t gpio_conf = {};
+    gpio_conf.intr_type = GPIO_INTR_DISABLE;
+    gpio_conf.mode = GPIO_MODE_INPUT_OUTPUT;
+    gpio_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    gpio_conf.pull_down_en = 0;
+    gpio_conf.pull_up_en = 0;
+    esp_err_t gpio_ret = gpio_config(&gpio_conf);
+    return gpio_ret;
 }

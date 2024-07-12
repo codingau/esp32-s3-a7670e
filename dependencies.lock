@@ -29,12 +29,6 @@ dependencies:
       service_url: https://api.components.espressif.com/
       type: service
     version: 1.1.0
-  espressif/json_parser:
-    component_hash: d74b81729ad06ec11ff5eb5b1b0d7df1d00e6027fc11471f4b139c70dcf1b1e4
-    source:
-      service_url: https://api.components.espressif.com/
-      type: service
-    version: 1.0.3
   espressif/led_indicator:
     component_hash: daa844acf7886b78fa4ea25c9dd6a4fb3a83f793a307187026be1c237fba632a
     source:
@@ -58,6 +52,6 @@ dependencies:
       service_url: https://api.components.espressif.com/
       type: service
     version: 0.2.1
-manifest_hash: 55effbe623046114911fb929e3a7eb014800cdfe8a54a2f06325ff826c85e609
+manifest_hash: 264f0234fe5853436efb9dae770235c3f17063ebf95ee167f0091dee4de6fabb
 target: esp32s3
 version: 1.0.0

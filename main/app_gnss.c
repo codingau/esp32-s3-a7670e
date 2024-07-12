@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <pthread.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -34,21 +35,16 @@ static const char* TAG = "app_gnss";
  * @brief 初始化 GNSS 数据。
  */
 app_gnss_data_t app_gnss_data = {
-    .date_time = {0},                   // 初始化为 0，表示未设置具体时间。
-    .valid = false,                     // 有效性设为 false
-    .sat = 0,                           // 卫星数设为 0
-    .alt = 0.0,                         // 高度设为 0.0 米。
-    .lat_deg = 0,                       // 纬度度数设为 0
-    .lat_min = 0.0,                     // 纬度分数设为 0.0
-    .lat_dir = NMEA_CARDINAL_DIR_SOUTH, // 默认纬度方向设为南半球。
-    .lon_deg = 0,                       // 经度度数设为 0
-    .lon_min = 0.0,                     // 经度分数设为 0.0
-    .lon_dir = NMEA_CARDINAL_DIR_EAST,  // 默认经度方向设为东半球。
-    .speed = 0.0,                       // 速度设为 0.0 节。
-    .trk_deg = 0.0,                     // 航向角度。
-    .mag_deg = 0.0,                     // 磁偏角度。
-    .mag_dir = NMEA_CARDINAL_DIR_EAST,  // 磁偏方向。
-    .mutex = PTHREAD_MUTEX_INITIALIZER  // 初始化互斥锁
+    .date_time = {0},                       // 日期时间。
+    .valid = false,                         // 有效性。
+    .sat = 0,                               // 卫星数。
+    .alt = 0.0,                             // 高度。
+    .lat = 0.0,                             // 纬度。
+    .lon = 0.0,                             // 经度。
+    .spd = 0.0,                             // 速度。
+    .trk = 0.0,                             // 航向角度。
+    .mag = 0.0,                             // 磁偏角度。
+    .mutex = PTHREAD_MUTEX_INITIALIZER      // 互斥锁。
 };
 
 /**
@@ -155,16 +151,25 @@ static void app_gnss_uart_task() {
         } else if (NMEA_GPRMC == data->type) {
             pthread_mutex_lock(&app_gnss_data.mutex);
             nmea_gprmc_s* rmc = (nmea_gprmc_s*)data;
-            app_gnss_data.lat_deg = rmc->latitude.degrees;
-            app_gnss_data.lat_min = rmc->latitude.minutes;
-            app_gnss_data.lat_dir = rmc->latitude.cardinal;
-            app_gnss_data.lon_deg = rmc->longitude.degrees;
-            app_gnss_data.lon_min = rmc->longitude.minutes;
-            app_gnss_data.lon_dir = rmc->longitude.cardinal;
-            app_gnss_data.speed = rmc->gndspd_knots;
-            app_gnss_data.trk_deg = rmc->track_deg;
-            app_gnss_data.mag_deg = rmc->magvar_deg;
-            app_gnss_data.mag_dir = rmc->magvar_cardinal;
+            app_gnss_data.valid = rmc->valid;
+            if (app_gnss_data.valid) {// false 的时候，以下数据全部为 0。
+                app_gnss_data.lat = rmc->latitude.degrees + (rmc->latitude.minutes / 60.0);
+                app_gnss_data.lat = round(app_gnss_data.lat * 1000000) / 1000000;// 四舍五入 6 位小数。
+                if (rmc->latitude.cardinal == NMEA_CARDINAL_DIR_SOUTH) {// 南经是负数。
+                    app_gnss_data.lat = -app_gnss_data.lat;
+                }
+                app_gnss_data.lon = rmc->longitude.degrees + (rmc->longitude.minutes / 60.0);
+                app_gnss_data.lon = round(app_gnss_data.lon * 1000000) / 1000000;// 四舍五入 6 位小数。
+                if (rmc->longitude.cardinal == NMEA_CARDINAL_DIR_WEST) {// 西经是负数。
+                    app_gnss_data.lon = -app_gnss_data.lon;
+                }
+                app_gnss_data.spd = rmc->gndspd_knots;
+                app_gnss_data.trk = rmc->track_deg;
+                app_gnss_data.mag = rmc->magvar_deg;
+                if (rmc->magvar_cardinal == NMEA_CARDINAL_DIR_WEST) {// 向西的磁偏角是负数。
+                    app_gnss_data.mag = -app_gnss_data.mag;
+                }
+            }
             pthread_mutex_unlock(&app_gnss_data.mutex);
         }
 

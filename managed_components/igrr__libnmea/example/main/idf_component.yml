@@ -1,4 +1,0 @@
-dependencies:
-  igrr/libnmea:
-    version: "*"
-    override_path: "../../"

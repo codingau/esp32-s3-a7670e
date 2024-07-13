@@ -74,7 +74,9 @@
         "unordered_map": "c",
         "vector": "c",
         "iterator": "c",
-        "future": "c"
+        "future": "c",
+        "cerrno": "c",
+        "unistd.h": "c"
     },
     "idf.flashType": "UART",
     "C_Cpp.vcFormat.newLine.beforeElse": false,

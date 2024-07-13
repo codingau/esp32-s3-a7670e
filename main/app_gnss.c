@@ -207,11 +207,11 @@ esp_err_t app_gnss_init(void) {
 
     app_gnss_send_at_command("AT+CGNSSPWR=1\r\n");// 上电
     for (int i = 10; i > 0; i--) {
-        ESP_LOGI(TAG, "等待 GNSS 模块上电: %d", i);
+        ESP_LOGI(TAG, "------ 等待 GNSS 模块上电: %d", i);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
     app_gnss_send_at_command("AT+CGNSSTST=1\r\n");// 接收数据
-    ESP_LOGI(TAG, "设置 GNSS 模块开始接收数据。");
+    ESP_LOGI(TAG, "------ 设置 GNSS 模块开始接收数据。");
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     // <parse_data_port> 0 output the parsed data of NMEA to USB AT port. 
@@ -219,7 +219,7 @@ esp_err_t app_gnss_init(void) {
     // <nmea_data_port>  0 output raw NMEA data to USB NMEA port. 
     //                   1 output raw NMEA data to UART port.
     app_gnss_send_at_command("AT+CGNSSPORTSWITCH=1,1\r\n");// 实测 parsed 无数据，所以 parsed data 也输出到 uart。避免 usb 上网卡出现未知异常。
-    ESP_LOGI(TAG, "切换 GNSS 数据输出端口：UART。");
+    ESP_LOGI(TAG, "------ 切换 GNSS 数据输出端口：UART。");
     vTaskDelay(pdMS_TO_TICKS(1000));// 延迟 1 秒，再进行下一步。
 
     xTaskCreate(app_gnss_uart_task, "app_gnss_uart_task", 3072, NULL, 8, NULL);// 启动接收任务。

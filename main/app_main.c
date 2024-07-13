@@ -126,8 +126,10 @@ void app_main_loop_task(void) {
     } else {
 
     }
-    ESP_LOGI(TAG, "------ JSON ------ %s", json);
     cJSON_free(json);
+    if (app_sd_log_file != NULL) {
+        fsync(fileno(app_sd_log_file));
+    }
 }
 
 /**
@@ -268,6 +270,11 @@ void app_main(void) {
         vTaskDelay(pdMS_TO_TICKS(10000));
         esp_restart();
         return;// 此行不会被执行，变色的关键字便于代码阅读。
+    }
+
+    // 如果 SD 卡可写，创建日志文件。
+    if (is_app_write_sd) {
+        app_sd_create_log_file();
     }
 
     // 开启一个无限循环的主任务，每隔 1 秒写一次数据。

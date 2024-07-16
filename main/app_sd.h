@@ -22,6 +22,11 @@ void app_sd_write_cache_file(char* dev_time, char* json);
 void app_sd_publish_cache(int cur_ts);
 
 /**
+* @brief 创建日志文件。
+*/
+void app_sd_create_log_file(void);
+
+/**
 * @brief 确保写出日志内容到 SD 卡。
 *        fsync() 执行比较消耗性能，所以由外部调用，隔一段时间执行一次。
 */

@@ -257,6 +257,8 @@ void app_main(void) {
         return;// 此行不会被执行，变色的关键字便于代码阅读。
     }
 
+    app_sd_create_log_file();// 日志文件是否可写，不影响 SD 卡初始化，也不影响整个 APP 的运行。
+
     // 开启一个无限循环的主任务，每隔几秒写一次数据。
     ESP_LOGI(TAG, "------ APP MAIN 启动主任务循环......");
     const TickType_t task_period = pdMS_TO_TICKS(1000);
@@ -265,9 +267,9 @@ void app_main(void) {
 
         app_main_loop_task();// 循环任务。
 
-        char buffer[1024];
-        vTaskGetRunTimeStats(buffer);
-        printf("---------------------------------------------:\n%s", buffer);
+        // char buffer[1024];
+        // vTaskGetRunTimeStats(buffer);
+        // printf("---------------------------------------------\n%s", buffer);
 
         TickType_t end_tick = xTaskGetTickCount();// 结束时间。
         TickType_t task_duration = end_tick - start_tick;

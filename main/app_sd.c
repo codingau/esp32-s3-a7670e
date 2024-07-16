@@ -233,7 +233,7 @@ static int app_sd_write_log_file(const char* fmt, va_list args) {
 /**
 * @brief 创建日志文件。
 */
-static void app_sd_create_log_file(void) {
+void app_sd_create_log_file(void) {
     time_t now;
     time(&now); // 获取当前时间（秒）。
     struct tm timeinfo;
@@ -302,7 +302,6 @@ esp_err_t app_sd_init(void) {
     if (log_dir_ret == -1) {
         return ESP_FAIL;
     }
-    app_sd_create_log_file();// 日志文件是否可写，不影响 SD 卡初始化，也不影响整个 APP 的运行。
 
     int cache_dir_ret = app_sd_mkdir(APP_SD_CACHE_DIR);// 创建缓存目录。
     if (cache_dir_ret == -1) {

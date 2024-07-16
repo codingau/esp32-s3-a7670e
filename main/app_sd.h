@@ -7,14 +7,25 @@
 #pragma once
 
  /**
- * @brief 日志文件。
+ * @brief 缓存文件。
  */
-extern FILE* app_sd_log_file;
+extern FILE* app_sd_cache_file;
 
 /**
- * @brief 创建日志文件。
+ * @brief 写入缓存文件。
  */
-void app_sd_create_log_file(void);
+void app_sd_write_cache_file(char* dev_time, char* json);
+
+/**
+ * @brief 推送缓存数据。
+ */
+void app_sd_publish_cache(int cur_ts);
+
+/**
+* @brief 确保写出日志内容到 SD 卡。
+*        fsync() 执行比较消耗性能，所以由外部调用，隔一段时间执行一次。
+*/
+void app_sd_fsync_log_file(void);
 
 /**
  * @brief 初始化函数。

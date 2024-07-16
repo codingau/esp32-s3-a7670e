@@ -24,7 +24,7 @@ static const char* TAG = "app_mqtt";
 /**
  * @brief MQTT 客户端。
  */
-static esp_mqtt_client_handle_t mqtt5_client;
+esp_mqtt_client_handle_t app_mqtt_5_client;
 
 /**
  * @brief MQTT 发消息给服务器。
@@ -33,7 +33,7 @@ static esp_mqtt_client_handle_t mqtt5_client;
  *          be zero) on success. -1 on failure, -2 in case of full outbox.
  */
 int app_mqtt_publish(char* msg) {
-    return esp_mqtt_client_publish(mqtt5_client, APP_MQTT_PUBLISH_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
+    return esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUBLISH_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
 }
 
 /**
@@ -55,6 +55,9 @@ static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, in
         case MQTT_EVENT_PUBLISHED:
             // ESP_LOGI(TAG, "------ MQTT 事件：发布完成！");
             break;
+        case MQTT_EVENT_BEFORE_CONNECT:
+            ESP_LOGI(TAG, "------ MQTT 事件：连接之前！");
+            break;
         default:
             ESP_LOGI(TAG, "------ MQTT 其它事件。EVENT ID：%ld", event_id);
             break;
@@ -71,11 +74,15 @@ esp_err_t app_mqtt_init(void) {
     char will_msg[] = APP_MQTT_WILL_MSG;
 
     esp_mqtt_client_config_t mqtt5_cfg = {
+        .session.protocol_ver = MQTT_PROTOCOL_V_5,
         .broker.address.uri = APP_MQTT_URI,
         .credentials.username = APP_MQTT_USERNAME,
         .credentials.authentication.password = APP_MQTT_PASSWORD,
-        .session.protocol_ver = MQTT_PROTOCOL_V_5,
+
+        .network.timeout_ms = 10000,// 网络操作超时为 10 秒。MQTT_NETWORK_TIMEOUT_MS 默认 10 秒。
+        .network.reconnect_timeout_ms = 10000,// 设置重连间隔为 10 秒。MQTT_RECON_DEFAULT_MS 默认 10 秒。
         .network.disable_auto_reconnect = false,    // 自动连接！
+
         .session.last_will.topic = APP_MQTT_WILL_TOPIC,
         .session.last_will.msg = will_msg,
         .session.last_will.msg_len = strlen(will_msg),
@@ -83,8 +90,9 @@ esp_err_t app_mqtt_init(void) {
         .session.last_will.retain = true,
     };
 
-    mqtt5_client = esp_mqtt_client_init(&mqtt5_cfg);
-    esp_mqtt_client_register_event(mqtt5_client, ESP_EVENT_ANY_ID, app_mqtt_event_handler, NULL);
-    esp_err_t mqtt_ret = esp_mqtt_client_start(mqtt5_client);
+    app_mqtt_5_client = esp_mqtt_client_init(&mqtt5_cfg);
+    esp_mqtt_client_register_event(app_mqtt_5_client, ESP_EVENT_ANY_ID, app_mqtt_event_handler, NULL);
+    esp_err_t mqtt_ret = esp_mqtt_client_start(app_mqtt_5_client);
+
     return mqtt_ret;
 }

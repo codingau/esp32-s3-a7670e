@@ -25,7 +25,7 @@ static const char* TAG = "app_sntp";
 static void app_stnp_sync_cb(struct timeval* tv) {
 
     struct tm timeinfo;
-    localtime_r(&tv->tv_sec, &timeinfo);// 将 timeval 转换为 tm。
+    gmtime_r(&tv->tv_sec, &timeinfo);// 将 timeval 转换为 tm。
     char buffer[64];
     strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &timeinfo);// 格式化日期和时间。
 

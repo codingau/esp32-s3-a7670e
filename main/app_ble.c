@@ -37,7 +37,7 @@ _Atomic int app_ble_disc_ts = ATOMIC_VAR_INIT(-3600000);// 提前一小时的毫
  *          冗余设计，两个针脚同时开关。接线的时候，随便接一条就行了。
  * @param level
  */
-void app_ble_gpio_set_level(uint32_t level) {
+static void app_ble_gpio_set_level(uint32_t level) {
     int cur_level = gpio_get_level(APP_BLE_GPIO_OUT_13);
     if (cur_level != level) {
         gpio_set_level(APP_BLE_GPIO_OUT_13, level);
@@ -80,8 +80,8 @@ void app_ble_gap_discovery(void) {
     ble_gap_wl_set(white_list, white_list_count);// 设置白名单。
 
     struct ble_gap_disc_params disc_params;
-    disc_params.itvl = BLE_GAP_SCAN_ITVL_MS(1000);// 每隔 1 秒扫描 0.5 秒。
-    disc_params.window = BLE_GAP_SCAN_WIN_MS(500);// 我的蓝色蓝牙钥匙，平均每 0.5 秒发射一次广播。
+    disc_params.itvl = BLE_GAP_SCAN_ITVL_MS(400);// 400 毫秒中的 100 毫秒用来扫描。
+    disc_params.window = BLE_GAP_SCAN_WIN_MS(100);// 我的蓝色蓝牙钥匙，平均每 0.5 秒发射一次广播。
     disc_params.filter_policy = BLE_HCI_SCAN_FILT_USE_WL;// 使用白名单模式。
     disc_params.limited = 0;// 非有限发现模式。
     disc_params.passive = 1;// 被动扫描。
@@ -97,6 +97,23 @@ static void app_ble_host_task(void* param) {
     nimble_port_run();// 此函数会被阻塞，只有执行 nimble_port_stop() 时，此函数才会返回。
     // 以下的的任何代码都不会被执行。
     nimble_port_freertos_deinit();// 此行永远不会被执行。
+}
+
+/**
+ * @brief 蓝牙钥匙检测 LEAVE 任务。
+ * @param param
+ */
+static void app_ble_leave_task(void* param) {
+    while (1) {
+        int cur_ts = esp_log_timestamp() / 1000;// 系统启动以后的秒数。
+        int ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
+        if (cur_ts - ble_ts > APP_BLE_LEAVE_TIMEOUT) {// 如果蓝牙开关离开 1 分钟，则关闭。
+            app_ble_gpio_set_level(0);
+        } else {
+            app_ble_gpio_set_level(1);// 如果蓝牙开关在 1 分钟内，则开启。
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));// 延迟 1 秒。
+    }
 }
 
 /**
@@ -119,5 +136,8 @@ esp_err_t app_ble_init(void) {
     gpio_conf.pull_down_en = 0;
     gpio_conf.pull_up_en = 0;
     esp_err_t gpio_ret = gpio_config(&gpio_conf);
+    if (gpio_ret == ESP_OK) {
+        xTaskCreate(app_ble_leave_task, "app_ble_leave_task", 2048, NULL, 10, NULL);// 蓝牙钥匙检测 LEAVE 任务。
+    }
     return gpio_ret;
 }

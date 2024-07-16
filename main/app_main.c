@@ -17,6 +17,7 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_event.h"
+#include "mqtt_client.h"
 #include "cJSON.h"
 #include "nmea.h"
 
@@ -38,24 +39,14 @@
 static const char* TAG = "app_main";
 
 /**
- * @brief 是否写数据到 sd 卡。
- */
-static bool is_app_write_sd = false;
-
-/**
- * @brief 是否写数据到网络。
- */
-static bool is_app_write_4g = false;
-
-/**
  * @brief 初始化推送数据。
  */
 static app_main_data_t cur_data = {
     .dev_addr = "00-00-00-00-00-00",        // 初始全部为 0。
-    .dev_time = "1970-01-01T00:00:00.000T", // 初始化为起始时间。
+    .dev_time = "19700101000000000",        // 初始化为起始时间。
     .log_ts = 0,                            // 初始为 0。
     .ble_ts = 0,                            // 初始为 0。
-    .gnss_time = "1970-01-01T00:00:00.000T",// 初始化为起始时间。
+    .gnss_time = "19700101000000",          // 初始化为起始时间。
     .gnss_valid = false,                    // 有效性为 false。
     .sat = 0,                               // 初始卫星数为 0。
     .alt = 0.0,                             // 初始高度设为 0.0 米。
@@ -76,9 +67,9 @@ void get_cur_utc_time(char* buffer, size_t buffer_size) {
     struct tm timeinfo;
     gettimeofday(&tv, NULL);// 获取当前时间，秒和微秒。
     gmtime_r(&tv.tv_sec, &timeinfo); // 转换数据格式，秒的部分。
-    strftime(buffer, buffer_size - 1, "%Y-%m-%dT%H:%M:%S", &timeinfo);// 格式化时间，精确到秒。当前的格式是：2024-07-11T02:49:55
+    strftime(buffer, buffer_size - 1, "%Y%m%d%H%M%S", &timeinfo);// 格式化时间，精确到秒。当前的格式是：20240711024955
     int millisec = tv.tv_usec / 1000;// 计算毫秒。
-    snprintf(buffer + strlen(buffer), buffer_size - strlen(buffer) - 1, ".%03dZ", millisec);// 追加毫秒字符串。返回时间格式：2024-07-11T02:49:55.148Z
+    snprintf(buffer + strlen(buffer), buffer_size - strlen(buffer) - 1, "%03d", millisec);// 追加毫秒字符串。返回时间格式：20240711024955148
 }
 
 /**
@@ -87,7 +78,7 @@ void get_cur_utc_time(char* buffer, size_t buffer_size) {
  */
 void get_gnss_utc_time(char* buffer, size_t buffer_size) {
     struct tm timeinfo = app_gnss_data.date_time;
-    strftime(buffer, buffer_size, "%Y-%m-%dT%H:%M:%SZ", &timeinfo);// GNSS 时间没有毫秒数。
+    strftime(buffer, buffer_size, "%Y%m%d%H%M%S", &timeinfo);// GNSS 时间没有毫秒数。
 }
 
 /**
@@ -111,25 +102,22 @@ void app_main_loop_task(void) {
     cur_data.mag = app_gnss_data.mag;// 磁偏角度。
     pthread_mutex_unlock(&app_gnss_data.mutex);
 
-    if (cur_data.log_ts - cur_data.ble_ts > APP_BLE_LEAVE_TIMEOUT) {// 如果蓝牙开关离开 1 分钟，则关闭。
-        app_ble_gpio_set_level(0);
-    } else {
-        app_ble_gpio_set_level(1);// 如果蓝牙开关在 1 分钟内，则开启。
-    }
-
     char* json = app_json_serialize(&cur_data);
 
-    // 推送数据。
-    int ret = app_mqtt_publish(json);
-    if (ret < 0) {// 发送失败。
-        ESP_LOGI(TAG, "------ ---------------- 发送失败");
-    } else {
+    // 如果有 MQTT，则 MQTT 推送到服务器。
+    if (app_mqtt_5_client != NULL) {
+        int pub_ret = app_mqtt_publish(json);
+        if (pub_ret < 0) {// 推送失败，写入缓存。
+            app_sd_write_cache_file(cur_data.dev_time, json);
+        } else {// 推送成功，检查缓存。
+            app_sd_publish_cache(cur_data.log_ts);// 每间隔几分钟，检查缓存数据，并推送。推送 600 条数据，大约 2 秒。
+        }
+    } else {// 没有 MQTT，直接写入缓存文件。
+        app_sd_write_cache_file(cur_data.dev_time, json);
+    }
 
-    }
-    cJSON_free(json);
-    if (app_sd_log_file != NULL) {
-        fsync(fileno(app_sd_log_file));
-    }
+    cJSON_free(json);// 必须在使用之后释放。
+    app_sd_fsync_log_file();// 把日志写入 SD 卡。
 }
 
 /**
@@ -169,10 +157,8 @@ void app_main(void) {
     esp_err_t sd_ret = app_sd_init();
     if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
         app_led_error_num(2);// led 红色 n 次。
-        is_app_write_sd = false;
         ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
     } else {
-        is_app_write_sd = true;
         ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");
     }
 
@@ -223,7 +209,7 @@ void app_main(void) {
 
     // 初始化 SNTP。
     esp_err_t sntp_ret = ESP_FAIL;
-    if (netif_ret == ESP_OK) {
+    if (modem_ret == ESP_OK) {
         sntp_ret = app_sntp_init();
         if (sntp_ret != ESP_OK) {
             app_led_error_num(6);// led 红色 n 次。
@@ -234,14 +220,13 @@ void app_main(void) {
     }
 
     // 初始化 MQTT，失败不终止运行。可以写数据到本地。
+    esp_err_t mqtt_ret = ESP_FAIL;
     if (modem_ret == ESP_OK) {
-        esp_err_t mqtt_ret = app_mqtt_init();
+        mqtt_ret = app_mqtt_init();
         if (mqtt_ret != ESP_OK) {
             app_led_error_num(7);// led 红色 n 次。
-            is_app_write_4g = false;
             ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
         } else {
-            is_app_write_4g = true;
             ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
         }
     }
@@ -265,24 +250,24 @@ void app_main(void) {
         ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
     }
 
-    // 没有输出目标的情况下，10 秒后重启。
-    if (!is_app_write_sd && !is_app_write_4g) {
-        vTaskDelay(pdMS_TO_TICKS(10000));
+    // 如果 SD 卡和 MQTT 都初始化失败了，20 秒后重启。
+    if (sd_ret != ESP_OK && mqtt_ret != ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(20000));
         esp_restart();
         return;// 此行不会被执行，变色的关键字便于代码阅读。
     }
 
-    // 如果 SD 卡可写，创建日志文件。
-    if (is_app_write_sd) {
-        app_sd_create_log_file();
-    }
-
-    // 开启一个无限循环的主任务，每隔 1 秒写一次数据。
-    const TickType_t task_period = pdMS_TO_TICKS(1000);  // 1秒
+    // 开启一个无限循环的主任务，每隔几秒写一次数据。
+    ESP_LOGI(TAG, "------ APP MAIN 启动主任务循环......");
+    const TickType_t task_period = pdMS_TO_TICKS(1000);
     while (1) {
         TickType_t start_tick = xTaskGetTickCount();// 开始时间。
 
         app_main_loop_task();// 循环任务。
+
+        char buffer[1024];
+        vTaskGetRunTimeStats(buffer);
+        printf("---------------------------------------------:\n%s", buffer);
 
         TickType_t end_tick = xTaskGetTickCount();// 结束时间。
         TickType_t task_duration = end_tick - start_tick;
@@ -290,6 +275,13 @@ void app_main(void) {
             vTaskDelay(task_period - (task_duration % task_period));
         } else {
             vTaskDelay(task_period - task_duration);
+        }
+        if (cur_data.gnss_valid == false) {// 如果数据无效，延迟 4 秒，5 秒一次。
+            vTaskDelay(pdMS_TO_TICKS(4000));
+        } else if (cur_data.spd < 2) {// 停止未移动，速度小于 3.704 公里，5 秒一次。
+            vTaskDelay(pdMS_TO_TICKS(4000));
+        } else if (cur_data.spd < 22) {// 低速移动，速度小于 40.744 公里，2 秒一次。
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
 }

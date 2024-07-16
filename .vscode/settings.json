@@ -76,7 +76,8 @@
         "iterator": "c",
         "future": "c",
         "cerrno": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "cstdio": "c"
     },
     "idf.flashType": "UART",
     "C_Cpp.vcFormat.newLine.beforeElse": false,

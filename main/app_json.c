@@ -28,7 +28,7 @@ char* app_json_serialize(const app_main_data_t* data) {
     cJSON_AddNumberToObject(root, "trk", data->trk);
     cJSON_AddNumberToObject(root, "mag", data->mag);
 
-    char* json_str = cJSON_Print(root);
+    char* json_str = cJSON_PrintUnformatted(root);// 不按字段换行。
     cJSON_Delete(root);
     // cJSON_free(json_str);// 不要在这里释放！
     return json_str;

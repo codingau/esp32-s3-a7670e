@@ -7,13 +7,13 @@
 #pragma once
 
  /**
-  * @brief 初始化函数。
+  * @brief 设置红灯闪烁次数。
   * @return
   */
-esp_err_t app_led_init(void);
+void app_led_error_num(uint32_t num);
 
 /**
- * @brief 设置红灯闪烁次数。
+ * @brief 初始化函数。
  * @return
  */
-void app_led_error_num(uint32_t num);
+esp_err_t app_led_init(void);

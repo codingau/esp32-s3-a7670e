@@ -20,7 +20,7 @@
 static const char* TAG = "app_led";
 
 /**
- * @brief 没啥注释的，我解释不清了。
+ * @brief 灯条句柄。
  */
 static led_strip_handle_t led_strip;
 
@@ -41,32 +41,21 @@ static uint32_t app_led_status_array[10][3] = {
 };
 
 /**
- * @brief 清除状态灯。
+ * @brief 设置红灯闪烁次数。
+ * @param num
  */
- // static void app_led_status_clear() {
- //     for (int i = 0; i < 10; i++) {
- //         for (int j = 0; j < 3; j++) {
- //             app_led_status_array[i][j] = 0;
- //         }
- //     }
- // }
-
- /**
-  * @brief 设置红灯闪烁次数。
-  * @param num
-  */
 void app_led_error_num(uint32_t num) {
     for (size_t i = 0; i < num; i++) {
         app_led_status_array[i][1] = 5;
     }
-    ESP_LOGI(TAG, "LED 状态改变：红色 %lu 次", num);
+    ESP_LOGI(TAG, "------ LED 状态改变：红色 %lu 次", num);
 }
 
 /**
  * @brief led 显示任务，10次状态灯，1次蓝色灯。
  */
 static void app_led_task(void* pvParameters) {
-    while (1) {
+    while (led_strip != NULL) {
         for (int i = 0; i < 10; i++) {
             ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, app_led_status_array[i][0], app_led_status_array[i][1], app_led_status_array[i][2]));
             ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
@@ -89,7 +78,7 @@ static void app_led_task(void* pvParameters) {
 esp_err_t app_led_init(void) {
 
     led_strip_config_t strip_config = {
-        .strip_gpio_num = APP_LED_GPIO,               // The GPIO that connected to the LED strip's data line
+        .strip_gpio_num = APP_LED_GPIO,           // The GPIO that connected to the LED strip's data line
         .max_leds = 1,                            // The number of LEDs in the strip,
         .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
         .led_model = LED_MODEL_WS2812,            // LED strip model
@@ -104,7 +93,7 @@ esp_err_t app_led_init(void) {
 
     esp_err_t ret = led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
     if (ret == ESP_OK) {
-        xTaskCreate(app_led_task, "app_led_task", 1024, NULL, 9, NULL);// 启动 led 显示任务。
+        xTaskCreate(app_led_task, "app_led_task", 2048, NULL, 10, NULL);// 启动 led 显示任务。
     }
     return ret;
 }

@@ -24,7 +24,7 @@
 #define APP_GNSS_UART_BAUD_RATE     115200
 #define APP_GNSS_UART_TX_PIN        18
 #define APP_GNSS_UART_RX_PIN        17
-#define APP_GNSS_UART_BUF_SIZE      1024
+#define APP_GNSS_UART_BUF_SIZE      2048
 
  /**
  * @brief 日志 TAG。
@@ -123,9 +123,8 @@ static void app_gnss_uart_task() {
     while (1) {
         char* start;
         size_t length;
-        app_gnss_uart_read_line(&start, &length, 100 /* ms */);
+        app_gnss_uart_read_line(&start, &length, 500 /* ms */);// A7670E 模块当前的输出频率是 1 秒 1 次，每次输出 N 条记录。
         if (length == 0) {
-            vTaskDelay(pdMS_TO_TICKS(200));// A7670E 模块当前的输出频率是 1 秒 1 次，每次输出N条记录。
             continue;
         }
         // ESP_LOGW(TAG, "%d ------ %.*s", length, length, start);

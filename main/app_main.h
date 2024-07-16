@@ -14,11 +14,11 @@
 typedef struct {
 
     char dev_addr[24];      // 设备地址。
-    char dev_time[32];      // 设备时间。
+    char dev_time[24];      // 设备时间。
     int log_ts;             // 系统启动以后的数。
     int ble_ts;             // 最后一次扫描到蓝牙开关的数。
 
-    char gnss_time[32];     // GNSS 时间。
+    char gnss_time[24];     // GNSS 时间。
     bool gnss_valid;        // 有效性。
     int sat;                // 卫星数。
     double alt;             // 高度，默认单位：M。

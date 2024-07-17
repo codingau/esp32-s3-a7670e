@@ -34,18 +34,13 @@ _Atomic int app_ble_disc_ts = ATOMIC_VAR_INIT(-3600000);// 提前一小时的毫
 
 /**
  * @brief 蓝牙开关控制的针脚，是否输出高电平。
- *          冗余设计，两个针脚同时开关。接线的时候，随便接一条就行了。
  * @param level
  */
 static void app_ble_gpio_set_level(uint32_t level) {
-    int cur_level = gpio_get_level(APP_BLE_GPIO_OUT_13);
-    if (cur_level != level) {
-        gpio_set_level(APP_BLE_GPIO_OUT_13, level);
-        ESP_LOGI(TAG, "------ BLE GPIO 电平状态改变: %lu", level);
-    }
-    cur_level = gpio_get_level(APP_BLE_GPIO_OUT_14);
+    int cur_level = gpio_get_level(APP_BLE_GPIO_OUT_14);
     if (cur_level != level) {
         gpio_set_level(APP_BLE_GPIO_OUT_14, level);
+        ESP_LOGI(TAG, "------ BLE GPIO 电平状态改变: %lu", level);
     }
 }
 
@@ -132,7 +127,7 @@ esp_err_t app_ble_init(void) {
     gpio_config_t gpio_conf = {};
     gpio_conf.intr_type = GPIO_INTR_DISABLE;
     gpio_conf.mode = GPIO_MODE_INPUT_OUTPUT;
-    gpio_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    gpio_conf.pin_bit_mask = GPIO_OUT_PIN_SEL_14;
     gpio_conf.pull_down_en = 0;
     gpio_conf.pull_up_en = 0;
     esp_err_t gpio_ret = gpio_config(&gpio_conf);

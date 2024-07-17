@@ -68,5 +68,6 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
 esp_err_t app_modem_init(void) {
     modem_config_t modem_config = MODEM_DEFAULT_CONFIG();
     modem_config.handler = app_modem_event_handler;
-    return modem_board_init(&modem_config);
+    esp_err_t ret = modem_board_init(&modem_config);
+    return ret;
 }

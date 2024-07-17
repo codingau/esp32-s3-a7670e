@@ -6,23 +6,17 @@ dependencies:
       type: service
     version: 0.1.0
   espressif/iot_usbh:
-    component_hash: 6248b9fb5c33ee7a0572c75947d79ec9f1ef44c0a2dd123665b22424d49e956e
+    component_hash: null
     source:
-      service_url: https://api.components.espressif.com/
-      type: service
+      path: D:\codes\esp-projects\esp32-s3-a7670e\components\espressif__iot_usbh
+      type: local
     version: 0.2.1
   espressif/iot_usbh_cdc:
-    component_hash: ea4c77448c25661585e9219e2d65df479ac35102e93205a6085cdb75fbf48c67
+    component_hash: null
     source:
-      service_url: https://api.components.espressif.com/
-      type: service
+      path: D:\codes\esp-projects\esp32-s3-a7670e\components\espressif__iot_usbh_cdc
+      type: local
     version: 0.2.2
-  espressif/iot_usbh_modem:
-    component_hash: 7dbbe32683f7e7e8755c1ad4906c129cd7d3524e9e256794d6391270d0146158
-    source:
-      service_url: https://api.components.espressif.com/
-      type: service
-    version: 0.2.1
   espressif/jsmn:
     component_hash: d80350c41bbaa827c98a25b6072df00884e72f54885996fab4a4f0aebce6b6c3
     source:
@@ -52,6 +46,6 @@ dependencies:
       service_url: https://api.components.espressif.com/
       type: service
     version: 0.2.1
-manifest_hash: 264f0234fe5853436efb9dae770235c3f17063ebf95ee167f0091dee4de6fabb
+manifest_hash: 779a93d57a37243c12a98576b3d2991afde8e1ce1ee9739e211aa36cfc37b107
 target: esp32s3
 version: 1.0.0

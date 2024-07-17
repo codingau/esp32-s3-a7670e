@@ -36,5 +36,6 @@ esp_err_t app_wifi_ap_init(char* dev_addr) {
         return ESP_FAIL;
     }
     modem_wifi_config_t modem_wifi_config = MODEM_WIFI_DEFAULT_CONFIG();
-    return modem_wifi_set(&modem_wifi_config);
+    esp_err_t ret = modem_wifi_set(&modem_wifi_config);
+    return ret;
 }

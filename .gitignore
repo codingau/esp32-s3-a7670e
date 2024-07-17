@@ -1,3 +1,6 @@
 build/
+components/
 managed_components/
 main/app_config.h
+dependencies.lock
+sdkconfig.old

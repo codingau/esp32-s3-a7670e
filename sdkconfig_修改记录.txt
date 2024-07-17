@@ -34,8 +34,8 @@ Enable NAT Port Mapping (new/experimental): yes   [CONFIG_LWIP_IPV4_NAPT_PORTMAP
 7 网络自定义配置
 Set Modem APN: yesinternet
 Set SIM PIN: 0000
-WiFi SSID: ldv
-WiFi Password: ldvyxxxy
+WiFi SSID: xxx
+WiFi Password: yxxxy
 
 8 启用蓝牙
 Bluetooth: yes

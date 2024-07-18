@@ -8,6 +8,10 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "led_strip.h"
+#include "usbh_modem_board.h"
+
+#include "app_gpio.h"
+#include "app_config.h"
 
  /**
  * @brief
@@ -18,6 +22,8 @@
  * @brief 日志 TAG。
  */
 static const char* TAG = "app_led";
+
+static int dce_null_count = 0;
 
 /**
  * @brief 灯条句柄。
@@ -54,7 +60,7 @@ void app_led_error_num(uint32_t num) {
 /**
  * @brief led 显示任务，10次状态灯，1次蓝色灯。
  */
-static void app_led_task(void* pvParameters) {
+static void app_led_task(void* param) {
     while (led_strip != NULL) {
         for (int i = 0; i < 10; i++) {
             ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, app_led_status_array[i][0], app_led_status_array[i][1], app_led_status_array[i][2]));
@@ -63,11 +69,21 @@ static void app_led_task(void* pvParameters) {
             ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
             vTaskDelay(pdMS_TO_TICKS(500));
         }
-        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 0, 0, 2));// 蓝色做为间隔符号。
-        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
-        vTaskDelay(pdMS_TO_TICKS(500));
-        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
-        vTaskDelay(pdMS_TO_TICKS(500));
+
+        bool dce_is_null = modem_board_dce_is_null();
+        if (dce_is_null) {
+            if (dce_null_count >= 6) {// 几次循环之后，如果 dce 还不存在，认为 Modem 没有被正确初始化。
+                ESP_LOGE(TAG, "------ MODEM 未初始化，重启外部继电器。");
+                app_gpio_set_level(APP_GPIO_NUM_RESET, 1);// 直接重启外部继电器，使开发板重新上电。
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                app_gpio_set_level(APP_GPIO_NUM_RESET, 0);
+                vTaskDelay(pdMS_TO_TICKS(60000));
+                esp_restart();// 理论上，不会执行到这里。
+            }
+            dce_null_count++;
+        } else {
+            dce_null_count = 0;
+        }
     }
 }
 

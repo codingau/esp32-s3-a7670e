@@ -20,6 +20,7 @@
 #include "host/util/util.h"
 #include "driver/gpio.h"
 
+#include "app_gpio.h"
 #include "app_config.h"
 
  /**
@@ -31,18 +32,6 @@ static const char* TAG = "app_ble";
  * @brief 蓝牙钥匙最后刷新时间。
  */
 _Atomic int app_ble_disc_ts = ATOMIC_VAR_INIT(-3600000);// 提前一小时的毫秒值，不管以后怎么改参数也应该够用了。
-
-/**
- * @brief 蓝牙开关控制的针脚，是否输出高电平。
- * @param level
- */
-static void app_ble_gpio_set_level(uint32_t level) {
-    int cur_level = gpio_get_level(APP_BLE_GPIO_OUT_14);
-    if (cur_level != level) {
-        gpio_set_level(APP_BLE_GPIO_OUT_14, level);
-        ESP_LOGI(TAG, "------ BLE GPIO 电平状态改变: %lu", level);
-    }
-}
 
 /**
  * @brief 发现设备后的事件。
@@ -103,9 +92,15 @@ static void app_ble_leave_task(void* param) {
         int cur_ts = esp_log_timestamp() / 1000;// 系统启动以后的秒数。
         int ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
         if (cur_ts - ble_ts > APP_BLE_LEAVE_TIMEOUT) {// 如果蓝牙开关离开 1 分钟，则关闭。
-            app_ble_gpio_set_level(0);
+            int ret = app_gpio_set_level(APP_GPIO_NUM_BLE, 0);
+            if (ret == 1) {
+                ESP_LOGI(TAG, "------ 蓝牙接近开关: 关闭。");
+            }
         } else {
-            app_ble_gpio_set_level(1);// 如果蓝牙开关在 1 分钟内，则开启。
+            int ret = app_gpio_set_level(APP_GPIO_NUM_BLE, 1);// 如果蓝牙开关在 1 分钟内，则开启。
+            if (ret == 1) {
+                ESP_LOGI(TAG, "------ 蓝牙接近开关: 开启。");
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(1000));// 延迟 1 秒。
     }
@@ -122,17 +117,6 @@ esp_err_t app_ble_init(void) {
     }
     ble_hs_cfg.sync_cb = app_ble_gap_discovery;
     nimble_port_freertos_init(app_ble_host_task);
-
-    // 初始化 GPIO。
-    gpio_config_t gpio_conf = {};
-    gpio_conf.intr_type = GPIO_INTR_DISABLE;
-    gpio_conf.mode = GPIO_MODE_INPUT_OUTPUT;
-    gpio_conf.pin_bit_mask = GPIO_OUT_PIN_SEL_14;
-    gpio_conf.pull_down_en = 0;
-    gpio_conf.pull_up_en = 0;
-    esp_err_t gpio_ret = gpio_config(&gpio_conf);
-    if (gpio_ret == ESP_OK) {
-        xTaskCreate(app_ble_leave_task, "app_ble_leave_task", 2048, NULL, 10, NULL);// 蓝牙钥匙检测 LEAVE 任务。
-    }
-    return gpio_ret;
+    xTaskCreate(app_ble_leave_task, "app_ble_leave_task", 2048, NULL, 10, NULL);// 蓝牙钥匙检测 LEAVE 任务。
+    return ESP_OK;
 }

@@ -77,7 +77,10 @@
         "future": "c",
         "cerrno": "c",
         "unistd.h": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "stdlib.h": "c",
+        "task.h": "c",
+        "cstdint": "cpp"
     },
     "idf.flashType": "UART",
     "C_Cpp.vcFormat.newLine.beforeElse": false,

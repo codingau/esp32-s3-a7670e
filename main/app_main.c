@@ -27,9 +27,11 @@
 #include "app_modem.h"
 #include "app_sntp.h"
 #include "app_mqtt.h"
+#include "app_gpio.h"
 #include "app_ble.h"
 #include "app_gnss.h"
 #include "app_json.h"
+#include "app_ping.h"
 #include "app_main.h"
 #include "app_config.h"
 
@@ -126,6 +128,15 @@ void app_main_loop_task(void) {
  */
 void app_main(void) {
 
+    // 初始化 GPIO。
+    esp_err_t gpio_ret = app_gpio_init();
+    if (gpio_ret != ESP_OK) {
+        app_led_error_num(2);// led 红色 n 次。
+        ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
+    } else {
+        ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
+    }
+
     // 初始化 LED，失败不终止运行。
     esp_err_t led_ret = app_led_init();
     if (led_ret != ESP_OK) {// 如果失败，大爷就不闪灯了，其它程序继续运行。
@@ -153,15 +164,6 @@ void app_main(void) {
         ESP_LOGI(TAG, "------ 初始化 NVS：OK。");
     }
 
-    // 初始化 SD 卡。
-    esp_err_t sd_ret = app_sd_init();
-    if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
-        app_led_error_num(2);// led 红色 n 次。
-        ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
-    } else {
-        ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");
-    }
-
     // 初始化事件循环，主要用于网络接口。
     esp_err_t event_loop_ret = esp_event_loop_create_default();
     if (event_loop_ret != ESP_OK) {
@@ -184,26 +186,37 @@ void app_main(void) {
         }
     }
 
+    // 初始化 4G MODEM。
+    esp_err_t modem_ret = ESP_FAIL;
+    if (netif_ret == ESP_OK) {
+        modem_ret = app_modem_init();
+        if (modem_ret != ESP_OK) {
+            app_led_error_num(4);// led 红色 n 次。
+            ESP_LOGE(TAG, "------ 初始化 4G MODEM：失败！");
+        } else {
+            ESP_LOGI(TAG, "------ 初始化 4G MODEM：OK。");
+        }
+    }
+
     // 初始化 WIFI 热点。没有热点还能凑合着跑，热点是为了其它功能提供上网服务，不影响本系统运行。
     if (netif_ret == ESP_OK) {
         esp_err_t wifi_ret = app_wifi_ap_init(cur_data.dev_addr);
         if (wifi_ret != ESP_OK) {
-            app_led_error_num(4);// led 红色 n 次。
+            app_led_error_num(5);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 WIFI 热点：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 WIFI 热点：OK。");
         }
     }
 
-    // 初始化 4G MODEM。
-    esp_err_t modem_ret = ESP_FAIL;
-    if (netif_ret == ESP_OK) {
-        modem_ret = app_modem_init();
-        if (modem_ret != ESP_OK) {
-            app_led_error_num(5);// led 红色 n 次。
-            ESP_LOGE(TAG, "------ 初始化 4G MODEM：失败！");
+    // 初始化 BLE，失败不终止运行。
+    if (gpio_ret == ESP_OK) {
+        esp_err_t ble_ret = app_ble_init();
+        if (ble_ret != ESP_OK) {
+            app_led_error_num(2);// led 红色 n 次。
+            ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
         } else {
-            ESP_LOGI(TAG, "------ 初始化 4G MODEM：OK。");
+            ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
         }
     }
 
@@ -231,33 +244,35 @@ void app_main(void) {
         }
     }
 
-    // 初始化 BLE，失败不终止运行。
-    esp_err_t ble_ret = app_ble_init();
-    if (ble_ret != ESP_OK) {
-        app_led_error_num(8);// led 红色 n 次。
-        ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
-    } else {
-        ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
-    }
-
     // GNSS 上电需要时间，所以放到最后执行。
     // 初始化 GNSS，失败不终止运行。没有定位数据也能凑合着跑。
     esp_err_t gnss_ret = app_gnss_init();
     if (gnss_ret != ESP_OK) {
-        app_led_error_num(9);// led 红色 n 次。
+        app_led_error_num(8);// led 红色 n 次。
         ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
     }
 
-    // 如果 SD 卡和 MQTT 都初始化失败了，20 秒后重启。
-    if (sd_ret != ESP_OK && mqtt_ret != ESP_OK) {
-        vTaskDelay(pdMS_TO_TICKS(20000));
-        esp_restart();
-        return;// 此行不会被执行，变色的关键字便于代码阅读。
+    // 初始化 SD，并且创建日志文件。放在 GNSS 之后，是为了等待 SNTP 服务同步时间。过早创建日志文件，获取不到时间。
+    esp_err_t sd_ret = app_sd_init();
+    if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
+        app_led_error_num(9);// led 红色 n 次。
+        ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
+    } else {
+        ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");
     }
 
-    app_sd_create_log_file();// 日志文件是否可写，不影响 SD 卡初始化，也不影响整个 APP 的运行。
+    // 启动一个 PING 任务，用于状态监测。
+    if (modem_ret == ESP_OK) {
+        esp_err_t ping_ret = app_ping_init();
+        if (ping_ret != ESP_OK) {
+            app_led_error_num(10);// led 红色 n 次。
+            ESP_LOGE(TAG, "------ 初始化 PING：失败！");
+        } else {
+            ESP_LOGI(TAG, "------ 初始化 PING：OK。");
+        }
+    }
 
     // 开启一个无限循环的主任务，每隔几秒写一次数据。
     ESP_LOGI(TAG, "------ APP MAIN 启动主任务循环......");

@@ -233,7 +233,7 @@ static int app_sd_write_log_file(const char* fmt, va_list args) {
 /**
 * @brief 创建日志文件。
 */
-void app_sd_create_log_file(void) {
+static void app_sd_create_log_file(void) {
     time_t now;
     time(&now); // 获取当前时间（秒）。
     struct tm timeinfo;
@@ -242,7 +242,7 @@ void app_sd_create_log_file(void) {
     if (timeinfo.tm_year < (2024 - 1900)) {// 如果是无效时间。
         snprintf(log_file_path_and_name, sizeof(log_file_path_and_name), APP_SD_LOG_DIR"/LOG.TXT");// 文件名使用常量值，随便什么名都行，能打开文件就行。
     } else {
-        strftime(log_file_path_and_name, sizeof(log_file_path_and_name), APP_SD_LOG_DIR"/%y%m%d%H.TXT", &timeinfo);// 文件名使用日期时间字符串。
+        strftime(log_file_path_and_name, sizeof(log_file_path_and_name), APP_SD_LOG_DIR"/%m%d%H%M.TXT", &timeinfo);// 文件名使用日期时间字符串。
     }
     app_sd_log_file = fopen(log_file_path_and_name, "a");
     if (app_sd_log_file == NULL) {
@@ -302,6 +302,7 @@ esp_err_t app_sd_init(void) {
     if (log_dir_ret == -1) {
         return ESP_FAIL;
     }
+    app_sd_create_log_file();
 
     int cache_dir_ret = app_sd_mkdir(APP_SD_CACHE_DIR);// 创建缓存目录。
     if (cache_dir_ret == -1) {

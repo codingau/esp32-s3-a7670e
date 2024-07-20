@@ -6,6 +6,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <pthread.h>
 #include "freertos/FreeRTOS.h"
@@ -14,12 +15,26 @@
 #include "esp_netif.h"
 #include "ping/ping_sock.h"
 
+#include "app_at.h"
+#include "app_gnss.h"
+
  /**
   * @brief 日志 TAG。
   */
 static const char* TAG = "app_ping";
 
+/**
+ * @brief PING 超时，时间戳。
+ */
+_Atomic int app_ping_timeout_ts = ATOMIC_VAR_INIT(0);
+
+/**
+ * @brief PING 正常。
+ */
 static void on_ping_success(esp_ping_handle_t hdl, void* args) {
+
+    atomic_store(&app_ping_timeout_ts, 0);
+
     uint8_t ttl;
     uint16_t seqno;
     uint32_t elapsed_time, recv_len;
@@ -29,15 +44,21 @@ static void on_ping_success(esp_ping_handle_t hdl, void* args) {
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
     esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
     esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time, sizeof(elapsed_time));
-    ESP_LOGI(TAG, "%" PRIu32 " bytes from %s icmp_seq=%u ttl=%u time=%" PRIu32 " ms\n", recv_len, ipaddr_ntoa(&target_addr), seqno, ttl, elapsed_time);
+    ESP_LOGI(TAG, "------ %" PRIu32 " bytes from %s icmp_seq=%u ttl=%u time=%" PRIu32 " ms\n", recv_len, ipaddr_ntoa(&target_addr), seqno, ttl, elapsed_time);
 }
 
+/**
+ * @brief PING 超时。
+ */
 static void on_ping_timeout(esp_ping_handle_t hdl, void* args) {
+
+    atomic_store(&app_ping_timeout_ts, esp_log_timestamp());
+
     uint16_t seqno;
     ip_addr_t target_addr;
     esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
-    ESP_LOGW(TAG, "From %s icmp_seq=%u timeout\n", ipaddr_ntoa(&target_addr), seqno);
+    ESP_LOGW(TAG, "------ From %s icmp_seq=%u timeout\n", ipaddr_ntoa(&target_addr), seqno);
 }
 
 /**

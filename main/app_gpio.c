@@ -31,6 +31,19 @@ int app_gpio_set_level(gpio_num_t gpio_num, uint32_t level) {
 }
 
 /**
+ * @brief 电源重置。
+ * @param
+ */
+void app_gpio_power_reset(void) {
+    ESP_LOGE(TAG, "------ GPIO 重置外部电源。");
+    app_gpio_set_level(APP_GPIO_NUM_POWER_RESET, 1);// 继电器控制脚接通，常闭端端断开，开发板断电，常闭端恢复。
+    vTaskDelay(pdMS_TO_TICKS(1000));// 理论上来说，以下代码都不会被执行。因为没电了...
+    app_gpio_set_level(APP_GPIO_NUM_POWER_RESET, 0);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();// 理论上，不会执行到这里。
+}
+
+/**
  * @brief 初始化函数。
  * @return
  */

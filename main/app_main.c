@@ -21,6 +21,7 @@
 #include "cJSON.h"
 #include "nmea.h"
 
+#include "app_at.h"
 #include "app_led.h"
 #include "app_sd.h"
 #include "app_wifi_ap.h"
@@ -128,7 +129,15 @@ void app_main_loop_task(void) {
  */
 void app_main(void) {
 
-    // 初始化 GPIO。
+    // 初始化 LED，失败不终止运行。
+    esp_err_t led_ret = app_led_init();
+    if (led_ret != ESP_OK) {// 如果失败，大爷就不闪灯了，其它程序继续运行。
+        ESP_LOGE(TAG, "------ 初始化 LED：失败！");
+    } else {
+        ESP_LOGI(TAG, "------ 初始化 LED：OK。");
+    }
+
+    // 初始化 GPIO 执行模块。
     esp_err_t gpio_ret = app_gpio_init();
     if (gpio_ret != ESP_OK) {
         app_led_error_num(2);// led 红色 n 次。
@@ -137,12 +146,13 @@ void app_main(void) {
         ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
     }
 
-    // 初始化 LED，失败不终止运行。
-    esp_err_t led_ret = app_led_init();
-    if (led_ret != ESP_OK) {// 如果失败，大爷就不闪灯了，其它程序继续运行。
-        ESP_LOGE(TAG, "------ 初始化 LED：失败！");
+    // 初始化 AT 命令执行模块。
+    esp_err_t at_ret = app_at_init();
+    if (at_ret != ESP_OK) {
+        app_led_error_num(8);// led 红色 n 次。
+        ESP_LOGE(TAG, "------ 初始化 AT：失败！");
     } else {
-        ESP_LOGI(TAG, "------ 初始化 LED：OK。");
+        ESP_LOGI(TAG, "------ 初始化 AT：OK。");
     }
 
     // 初始化 NVS，失败则终止运行。因为其它功能依赖于 NVS。
@@ -246,12 +256,14 @@ void app_main(void) {
 
     // GNSS 上电需要时间，所以放到最后执行。
     // 初始化 GNSS，失败不终止运行。没有定位数据也能凑合着跑。
-    esp_err_t gnss_ret = app_gnss_init();
-    if (gnss_ret != ESP_OK) {
-        app_led_error_num(8);// led 红色 n 次。
-        ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
-    } else {
-        ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
+    if (at_ret == ESP_OK) {
+        esp_err_t gnss_ret = app_gnss_init();
+        if (gnss_ret != ESP_OK) {
+            app_led_error_num(8);// led 红色 n 次。
+            ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
+        } else {
+            ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
+        }
     }
 
     // 初始化 SD，并且创建日志文件。放在 GNSS 之后，是为了等待 SNTP 服务同步时间。过早创建日志文件，获取不到时间。

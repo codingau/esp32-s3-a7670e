@@ -10,6 +10,7 @@
 #include "usbh_modem_board.h"
 #include "usbh_modem_wifi.h"
 
+#include "app_at.h"
 #include "app_gpio.h"
 #include "app_config.h"
 
@@ -64,6 +65,14 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
 }
 
 /**
+ * @brief MODEM 重置函数。
+ * @param
+ */
+void app_modem_reset(void) {
+    app_at_send_command("AT+CRESET\r\n");
+}
+
+/**
  * @brief 初始化函数。
  * @param
  * @return
@@ -71,8 +80,9 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
 esp_err_t app_modem_init(void) {
     modem_config_t modem_config = MODEM_DEFAULT_CONFIG();
     modem_config.handler = app_modem_event_handler;
-    // 不允许执行 modem_board_force_reset()，因为这个函数内部执行的低电平脉冲宽度不足 2 秒，参考 A7670C_R2_硬件设计手册_V1.06.pdf 模块复位章节。
-    modem_config.flags |= MODEM_FLAGS_INIT_NOT_FORCE_RESET;
+    // 修正 modem_board_force_reset() 内部代码以适应当前开发板，
+    // 因为这个函数内部执行的低电平脉冲宽度不足 2 秒，参考 A7670C_R2_硬件设计手册_V1.06.pdf 模块复位章节。
+    modem_config.reset_func = app_modem_reset;
     esp_err_t board_ret = modem_board_init(&modem_config);
     return board_ret;
 }

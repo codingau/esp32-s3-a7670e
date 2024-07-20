@@ -22,7 +22,6 @@ typedef struct {
     double spd;                         // 速度，默认单位：节。
     double trk;                         // 航向角度。
     double mag;                         // 磁偏角度。
-
     pthread_mutex_t mutex;              // 互斥锁。
 
 } app_gnss_data_t;

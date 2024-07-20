@@ -4,13 +4,17 @@
  * @author  nyx
  * @date    2024-06-28
  */
+#include <stdatomic.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "led_strip.h"
 #include "usbh_modem_board.h"
 
+#include "app_at.h"
 #include "app_gpio.h"
+#include "app_gnss.h"
+#include "app_ping.h"
 #include "app_config.h"
 
  /**
@@ -23,7 +27,10 @@
  */
 static const char* TAG = "app_led";
 
-static int dce_null_count = 0;
+/**
+* @brief 是否输出 GNSS 数据流。
+*/
+static bool is_gnss_out = false;
 
 /**
  * @brief 灯条句柄。
@@ -66,23 +73,46 @@ static void app_led_task(void* param) {
             ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, app_led_status_array[i][0], app_led_status_array[i][1], app_led_status_array[i][2]));
             ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
             vTaskDelay(pdMS_TO_TICKS(500));
-            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
-            vTaskDelay(pdMS_TO_TICKS(500));
+            if (i == 9) {
+                ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 0, 0, 2));// 蓝色做为间隔符号。
+                ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+                vTaskDelay(pdMS_TO_TICKS(500));
+            } else {
+                ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
+                vTaskDelay(pdMS_TO_TICKS(500));
+            }
         }
 
-        bool dce_is_null = modem_board_dce_is_null();
-        if (dce_is_null) {
-            if (dce_null_count >= 6) {// 几次循环之后，如果 dce 还不存在，认为 Modem 没有被正确初始化。
-                ESP_LOGE(TAG, "------ MODEM 未初始化，重启外部继电器。");
-                app_gpio_set_level(APP_GPIO_NUM_RESET, 1);// 直接重启外部继电器，使开发板重新上电。
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                app_gpio_set_level(APP_GPIO_NUM_RESET, 0);
-                vTaskDelay(pdMS_TO_TICKS(60000));
-                esp_restart();// 理论上，不会执行到这里。
+        int ping_timeout_ts = atomic_load(&app_ping_timeout_ts);
+        if (ping_timeout_ts > 0) {
+            if (app_gnss_data.valid && app_gnss_data.spd < 2) {// 如果 GSNN 数据有效，并且未移动时，检测信号状态。每小时 3.704 千米视为未移动。
+                if (app_at_data.is_csq == false) {// 如果没检测过，发送检测命令。
+                    is_gnss_out = false;
+                    app_at_send_command("AT+CGNSSPORTSWITCH=0,0\r\n");// 停止 GNSS 数据接收。
+                    app_at_send_command("AT+CSQ\r\n");// 发送检测信号命令。
+
+                } else {// 如果 CSQ 返回数据。
+
+                    int rssi = app_at_data.rssi;
+                    int ber = app_at_data.ber;
+                    if (rssi == 99 || ber == 99 || rssi < 15 || ber > 5) {// 信号未知，或者信号弱，继续接收 GSNN 数据。
+                        if (is_gnss_out == false) {
+                            is_gnss_out = true;
+                            app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
+                        }
+                        app_at_data.is_csq = false;// 重置数据，等待下一次循环。
+                        app_at_data.rssi = 0;
+                        app_at_data.ber = 0;
+                    } else {
+                        esp_restart();// 如果有信号还断网，重启开发板。
+                    }
+                }
             }
-            dce_null_count++;
         } else {
-            dce_null_count = 0;
+            if (is_gnss_out == false) {
+                is_gnss_out = true;
+                app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
+            }
         }
     }
 }

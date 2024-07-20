@@ -7,7 +7,12 @@
 #pragma once
 
  /**
-  * @brief 初始化函数。
-  * @return
+  * @brief PING 超时，时间戳。
   */
+extern int app_ping_timeout_ts;
+
+/**
+ * @brief 初始化函数。
+ * @return
+ */
 esp_err_t app_ping_init(void);

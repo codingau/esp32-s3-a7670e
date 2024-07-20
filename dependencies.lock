@@ -40,12 +40,6 @@ dependencies:
     source:
       type: idf
     version: 5.2.2
-  igrr/libnmea:
-    component_hash: d6e78e853e75882c17cd4f200d110b84824e728cefbb84152227f0f4f98d8a50
-    source:
-      service_url: https://api.components.espressif.com/
-      type: service
-    version: 0.2.1
-manifest_hash: 779a93d57a37243c12a98576b3d2991afde8e1ce1ee9739e211aa36cfc37b107
+manifest_hash: b985e1e8f0e5ebe99e11323f2179ba1275c7fd3a86ce9a1d8f7d538d6b16a86c
 target: esp32s3
 version: 1.0.0

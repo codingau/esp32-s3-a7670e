@@ -135,12 +135,10 @@ static esp_err_t modem_board_handle_powerup(esp_modem_dce_t* dce, const char* li
 }
 
 static esp_err_t modem_board_reset(esp_modem_dce_t* dce) {
-    modem_board_t* board = __containerof(dce, modem_board_t, parent);
-    ESP_LOGI(TAG, "modem_board_reset!");
-    dce->handle_line = modem_board_handle_powerup;
-    if (board->reset_pin) {
-        board->reset_pin->pulse(board->reset_pin);
+    if (reset_func != NULL) {// add by nyx 2024-07-20
+        reset_func();
     }
+    ESP_LOGI(TAG, "modem_board_reset() ------ 使用 UART 发送 AT 命令，重置 MODEM。");
     return ESP_OK;
 }
 
@@ -148,24 +146,7 @@ esp_err_t modem_board_force_reset(void) {
     if (reset_func != NULL) {// add by nyx 2024-07-20
         reset_func();
     }
-    ESP_LOGI(TAG, "------ 使用 UART 发送 AT 命令，重置 MODEM。");
-
-    // ESP_LOGI(TAG, "Force reset modem board....");
-    // gpio_config_t io_config = {
-    //     .pin_bit_mask = BIT64(MODEM_RESET_GPIO),
-    //     .mode = GPIO_MODE_OUTPUT
-    // };
-    // gpio_config(&io_config);
-    // // gpio default to inactive state
-    // gpio_set_level(MODEM_RESET_GPIO, MODEM_RESET_GPIO_INACTIVE_LEVEL);
-    // // gpio active to reset modem
-    // gpio_set_level(MODEM_RESET_GPIO, !MODEM_RESET_GPIO_INACTIVE_LEVEL);
-    // ESP_LOGI(TAG, "Resetting modem using io=%d, level=%d", MODEM_RESET_GPIO, !MODEM_RESET_GPIO_INACTIVE_LEVEL);
-    // vTaskDelay(pdMS_TO_TICKS(MODEM_RESET_GPIO_ACTIVE_MS));
-    // gpio_set_level(MODEM_RESET_GPIO, MODEM_RESET_GPIO_INACTIVE_LEVEL);
-    // // waitting for modem re-init ready
-    // ESP_LOGI(TAG, "Waiting for modem initialize ready");
-    // vTaskDelay(pdMS_TO_TICKS(MODEM_RESET_GPIO_INACTIVE_MS));
+    ESP_LOGI(TAG, "modem_board_force_reset() ------ 使用 UART 发送 AT 命令，重置 MODEM。");
     return ESP_OK;
 }
 
@@ -199,6 +180,7 @@ static esp_err_t my_recov(esp_modem_recov_resend_t* retry_cmd, esp_err_t err, in
             dce->mode = ESP_MODEM_TRANSITION_MODE;
             dce->set_command_mode(dce, NULL, NULL);
         } else if (timeouts + errors <= 3) {
+            ESP_LOGW(TAG, "------ MODEM 没有重置 PIN。");
             // try to reset with GPIO if resend didn't help
             ESP_LOGW(TAG, "Reset modem through reset pin........");
             esp_event_post(MODEM_BOARD_EVENT, MODEM_EVENT_DTE_RESTART, NULL, 0, 0);
@@ -206,6 +188,7 @@ static esp_err_t my_recov(esp_modem_recov_resend_t* retry_cmd, esp_err_t err, in
             board->reset(dce);
             esp_event_post(MODEM_BOARD_EVENT, MODEM_EVENT_DTE_RESTART_DONE, NULL, 0, 0);
         } else {
+            ESP_LOGW(TAG, "------ MODEM 没有电源 PIN。");
             // otherwise power-cycle the board
             ESP_LOGW(TAG, "Reset modem through power pin........");
             esp_event_post(MODEM_BOARD_EVENT, MODEM_EVENT_DTE_RESTART, NULL, 0, 0);
@@ -698,7 +681,6 @@ esp_err_t modem_board_get_sim_cart_state(int* if_ready) {
     } else {
         return ESP_OK;
     }
-
     return esp_modem_dce_read_pin(s_dce, NULL, &if_ready);
 }
 

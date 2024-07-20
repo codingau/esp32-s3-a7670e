@@ -70,6 +70,7 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
  */
 void app_modem_reset(void) {
     app_at_send_command("AT+CRESET\r\n");
+    ESP_LOGI(TAG, "------ 使用 UART 发送 AT 命令，重置 MODEM。");
 }
 
 /**

@@ -140,16 +140,16 @@ void app_main(void) {
     // 初始化 GPIO 执行模块。
     esp_err_t gpio_ret = app_gpio_init();
     if (gpio_ret != ESP_OK) {
-        app_led_error_num(2);// led 红色 n 次。
-        ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
+        app_led_error_num(1);// led 红色 n 次。
+        ESP_LOGE(TAG, "------ 初始化 GPIO：失败！");
     } else {
-        ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
+        ESP_LOGI(TAG, "------ 初始化 GPIO：OK。");
     }
 
     // 初始化 AT 命令执行模块。
     esp_err_t at_ret = app_at_init();
     if (at_ret != ESP_OK) {
-        app_led_error_num(8);// led 红色 n 次。
+        app_led_error_num(1);// led 红色 n 次。
         ESP_LOGE(TAG, "------ 初始化 AT：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 AT：OK。");
@@ -160,13 +160,13 @@ void app_main(void) {
     if (nvs_ret == ESP_ERR_NVS_NO_FREE_PAGES || nvs_ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {// 如果 NVS 分区空间不足或者发现新版本，需要擦除 NVS 分区并重试初始化。
         nvs_ret = nvs_flash_erase();
         if (nvs_ret != ESP_OK) {
-            app_led_error_num(1);// led 红色 n 次。
+            app_led_error_num(2);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 擦除 NVS：失败！");
             return;
         }
         nvs_ret = nvs_flash_init();
         if (nvs_ret != ESP_OK) {
-            app_led_error_num(1);// led 红色 n 次。
+            app_led_error_num(2);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 NVS：失败！");
             return;
         }
@@ -223,7 +223,7 @@ void app_main(void) {
     if (gpio_ret == ESP_OK) {
         esp_err_t ble_ret = app_ble_init();
         if (ble_ret != ESP_OK) {
-            app_led_error_num(2);// led 红色 n 次。
+            app_led_error_num(6);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
@@ -235,7 +235,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         sntp_ret = app_sntp_init();
         if (sntp_ret != ESP_OK) {
-            app_led_error_num(6);// led 红色 n 次。
+            app_led_error_num(7);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 SNTP：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 SNTP：OK。");
@@ -247,7 +247,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         mqtt_ret = app_mqtt_init();
         if (mqtt_ret != ESP_OK) {
-            app_led_error_num(7);// led 红色 n 次。
+            app_led_error_num(8);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
@@ -259,7 +259,7 @@ void app_main(void) {
     if (at_ret == ESP_OK) {
         esp_err_t gnss_ret = app_gnss_init();
         if (gnss_ret != ESP_OK) {
-            app_led_error_num(8);// led 红色 n 次。
+            app_led_error_num(9);// led 红色 n 次。
             ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
@@ -269,7 +269,7 @@ void app_main(void) {
     // 初始化 SD，并且创建日志文件。放在 GNSS 之后，是为了等待 SNTP 服务同步时间。过早创建日志文件，获取不到时间。
     esp_err_t sd_ret = app_sd_init();
     if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
-        app_led_error_num(9);// led 红色 n 次。
+        app_led_error_num(10);// led 红色 n 次。
         ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");

@@ -44,7 +44,7 @@ static void app_ping_cb_success(esp_ping_handle_t hdl, void* args) {
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
     esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
     esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time, sizeof(elapsed_time));
-    ESP_LOGI(TAG, "------ %" PRIu32 " bytes from %s icmp_seq=%u ttl=%u time=%" PRIu32 " ms\n", recv_len, ipaddr_ntoa(&target_addr), seqno, ttl, elapsed_time);
+    ESP_LOGI(TAG, "------ %" PRIu32 " bytes from %s icmp_seq=%u ttl=%u time=%" PRIu32 " ms", recv_len, ipaddr_ntoa(&target_addr), seqno, ttl, elapsed_time);
 }
 
 /**
@@ -58,7 +58,7 @@ static void app_ping_cb_timeout(esp_ping_handle_t hdl, void* args) {
     ip_addr_t target_addr;
     esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
     esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
-    ESP_LOGW(TAG, "------ From %s icmp_seq=%u timeout\n", ipaddr_ntoa(&target_addr), seqno);
+    ESP_LOGW(TAG, "------ From %s icmp_seq=%u timeout", ipaddr_ntoa(&target_addr), seqno);
 }
 
 /**

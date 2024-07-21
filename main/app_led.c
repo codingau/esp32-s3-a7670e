@@ -28,11 +28,6 @@
 static const char* TAG = "app_led";
 
 /**
-* @brief 是否输出 GNSS 数据流。
-*/
-static bool is_gnss_out = false;
-
-/**
  * @brief 灯条句柄。
  */
 static led_strip_handle_t led_strip;
@@ -74,7 +69,6 @@ static void app_led_check_and_restart(void) {
         if (app_gnss_data.valid && app_gnss_data.spd < 2) {// 如果 GSNN 数据有效，并且未移动时，检测信号状态。每小时 3.704 千米视为未移动。
             pthread_mutex_lock(&app_at_data.mutex);
             if (app_at_data.is_csq == false) {// 如果没检测过 CSQ，发送检测命令。
-                is_gnss_out = false;
                 app_at_send_command("AT+CGNSSPORTSWITCH=0,0\r\n");// 停止 GNSS 数据接收。
                 app_at_send_command("AT+CSQ\r\n");// 发送检测信号命令。
 
@@ -83,13 +77,10 @@ static void app_led_check_and_restart(void) {
                 int rssi = app_at_data.rssi;
                 int ber = app_at_data.ber;
                 if (rssi == 99 || ber == 99 || rssi < 15 || ber > 5) {// 信号未知，或者信号弱，继续接收 GSNN 数据。
-                    if (is_gnss_out == false) {
-                        is_gnss_out = true;
-                        app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
-                    }
                     app_at_data.is_csq = false;// 重置数据，等待下一次循环。
                     app_at_data.rssi = 99;
                     app_at_data.ber = 99;
+                    app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
 
                 } else {
                     esp_restart();// 如果有信号还断网，重启开发板。
@@ -99,9 +90,11 @@ static void app_led_check_and_restart(void) {
         } else {
             // GNSS 数据无效，或者移动时，什么都不做。
         }
-    } else {
-        if (is_gnss_out == false) {
-            is_gnss_out = true;
+    } else {// PING 返回正常。
+        if (app_at_data.is_csq) {// 如果正在接收 CSQ 数据，切换为开始接收 GNSS 数据
+            app_at_data.is_csq = false;
+            app_at_data.rssi = 99;
+            app_at_data.ber = 99;
             app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
         }
     }

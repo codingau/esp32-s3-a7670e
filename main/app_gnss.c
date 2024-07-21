@@ -198,15 +198,34 @@ static void app_gnss_read_task() {
 }
 
 /**
+ * @brief 打印 UART 接收的字符串。
+ */
+static void app_gnss_print_uart_line() {
+    uint8_t data[99 + 1];
+    int length = uart_read_bytes(APP_AT_UART_PORT_NUM, data, 99, pdMS_TO_TICKS(200));
+    if (length > 0) {
+        data[length] = '\0';
+        ESP_LOGW(TAG, "------ 返回数据：\n%s", data);
+    }
+}
+
+/**
  * @brief 初始化函数。
  * @return
  */
 esp_err_t app_gnss_init(void) {
-    app_at_send_command("AT+CGNSSPWR=1\r\n");// 上电。
+
+    app_at_send_command("AT+CGNSSPWR=1,1\r\n");// 上电，并且激活 GNSS AP_Flash 快速热启动。
+    app_gnss_print_uart_line();
     for (int i = 10; i > 0; i--) {
         ESP_LOGI(TAG, "------ 等待 GNSS 模块上电: %d", i);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+
+    app_at_send_command("AT+CGPSHOT\r\n");// 热启动。
+    app_gnss_print_uart_line();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
     // A76XX AT 命令手册原文：Send data received from UART3 to NMEA port。
     // 意思是，默认情况，NMEA 数据发往了 A7670E 芯片的 UART3 端口。
     // A7670C 硬件手册说明，有 3 路串口。
@@ -214,6 +233,7 @@ esp_err_t app_gnss_init(void) {
     // 2，串口 UART_LOG，支持 Debug 用途。
     // 3，串口 UART3，普通两线串口。
     app_at_send_command("AT+CGNSSTST=1\r\n");// 接收数据，默认是 A7670E 的 UART3 口。
+    app_gnss_print_uart_line();
     ESP_LOGI(TAG, "------ 设置 GNSS 模块开始接收数据。");
     vTaskDelay(pdMS_TO_TICKS(1000));
 
@@ -223,9 +243,11 @@ esp_err_t app_gnss_init(void) {
     // <nmea_data_port>  0 output raw NMEA data to USB NMEA port. 
     //                   1 output raw NMEA data to UART port.
     app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 切换接收数据到 A7670E 主串口，也就是发送命令的这个串口。
+    app_gnss_print_uart_line();
     ESP_LOGI(TAG, "------ 切换 GNSS 数据输出端口：UART。");
     vTaskDelay(pdMS_TO_TICKS(1000));// 延迟 1 秒，再进行下一步。
 
     xTaskCreate(app_gnss_read_task, "app_gnss_read_task", 3072, NULL, 8, NULL);// 启动接收任务。
+
     return ESP_OK;
 }

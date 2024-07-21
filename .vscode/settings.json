@@ -96,7 +96,8 @@
         "type_traits": "c",
         "utility": "c",
         "gpgga.h": "c",
-        "app_at.h": "c"
+        "app_at.h": "c",
+        "sdmmc_host.h": "c"
     },
     "idf.flashType": "UART",
     "C_Cpp.vcFormat.newLine.beforeElse": false,

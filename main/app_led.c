@@ -126,7 +126,7 @@ static void app_led_task(void* param) {
             }
         }
 
-        app_led_check_network_status();// 每个周期检测一次网络状态。
+        app_led_check_and_restart();// 每个周期检测一次网络状态。
     }
 }
 

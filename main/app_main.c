@@ -59,7 +59,6 @@ static app_main_data_t cur_data = {
     .spd = 0.0,                             // 速度。
     .trk = 0.0,                             // 航向角度。
     .f = 0,                                 // 初始化标记为 0。
-    .mag_dir = NMEA_CARDINAL_DIR_EAST,      // 磁偏方向。
 };
 
 /**

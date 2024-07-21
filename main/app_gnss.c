@@ -163,6 +163,7 @@ static void app_gnss_read_task() {
             nmea_gprmc_s* rmc = (nmea_gprmc_s*)data;
             app_gnss_data.valid = rmc->valid;
             if (app_gnss_data.valid) {// false 的时候，以下数据全部为 0。
+                app_gnss_data.date_time = rmc->date_time;
                 app_gnss_data.lat = rmc->latitude.degrees + (rmc->latitude.minutes / 60.0);
                 app_gnss_data.lat = round(app_gnss_data.lat * 1000000) / 1000000;// 四舍五入 6 位小数。
                 if (rmc->latitude.cardinal == NMEA_CARDINAL_DIR_SOUTH) {// 南经是负数。

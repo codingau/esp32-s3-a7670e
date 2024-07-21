@@ -28,7 +28,6 @@ typedef struct {
     double spd;             // 速度，默认单位：节。
     double trk;             // 航向角度。
     double mag;             // 磁偏角度。
-    char mag_dir;           // 磁偏方向。
 
     // 温度。
     // 湿度。

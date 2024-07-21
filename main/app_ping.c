@@ -31,7 +31,7 @@ _Atomic int app_ping_timeout_ts = ATOMIC_VAR_INIT(0);
 /**
  * @brief PING 正常。
  */
-static void on_ping_success(esp_ping_handle_t hdl, void* args) {
+static void app_ping_cb_success(esp_ping_handle_t hdl, void* args) {
 
     atomic_store(&app_ping_timeout_ts, 0);
 
@@ -50,7 +50,7 @@ static void on_ping_success(esp_ping_handle_t hdl, void* args) {
 /**
  * @brief PING 超时。
  */
-static void on_ping_timeout(esp_ping_handle_t hdl, void* args) {
+static void app_ping_cb_timeout(esp_ping_handle_t hdl, void* args) {
 
     atomic_store(&app_ping_timeout_ts, esp_log_timestamp());
 
@@ -84,8 +84,8 @@ esp_err_t app_ping_init(void) {
     };
 
     esp_ping_callbacks_t esp_ping_callbacks = {
-        .on_ping_success = on_ping_success,
-        .on_ping_timeout = on_ping_timeout,
+        .on_ping_success = app_ping_cb_success,
+        .on_ping_timeout = app_ping_cb_timeout,
         .on_ping_end = NULL,
         .cb_args = NULL,
     };

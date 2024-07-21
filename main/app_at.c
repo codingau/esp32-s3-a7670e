@@ -28,8 +28,8 @@ static const char* TAG = "app_at";
  */
 app_at_data_t app_at_data = {
     .is_csq = false,
-    .rssi = 0,
-    .ber = 0,
+    .rssi = 99,                             // 初始值应该设置为 99。
+    .ber = 99,
     .mutex = PTHREAD_MUTEX_INITIALIZER      // 互斥锁。
 };
 

@@ -33,5 +33,5 @@ typedef struct {
     // 湿度。
     // 烟雾。
     // 电压。
-
+    int f;                  // 标记是否文件缓存数据。
 } app_main_data_t;

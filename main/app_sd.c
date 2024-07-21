@@ -115,6 +115,9 @@ void app_sd_write_cache_file(char* dev_time, char* json) {
     if (app_sd_cache_file == NULL) {
         return;
     }
+    size_t len = strlen(json);
+    json[strlen(json) - 2] = '1';// 替换 json 中标记字段值为 1，标记为缓存数据。
+
     fprintf(app_sd_cache_file, "%s\n", json);
     fflush(app_sd_cache_file);
     fsync(fileno(app_sd_cache_file));
@@ -159,14 +162,14 @@ static void app_sd_publish_cache_file(char* file_name) {
 /**
 * @brief 文件名排序，正序。
 */
-int compare_file_name(const void* a, const void* b) {
+static int app_sd_compare_file_name(const void* a, const void* b) {
     return strcmp(*(const char**)a, *(const char**)b);
 }
 
 /**
 * @brief 推送缓存数据。
 */
-void app_sd_publish_cache(int cur_ts) {
+static void app_sd_publish_cache(int cur_ts) {
     if (cur_ts - app_sd_last_publish_ts < 120) {// 间隔 2 分钟检查一次。
         return;
     }
@@ -193,7 +196,7 @@ void app_sd_publish_cache(int cur_ts) {
 
     if (fileCount > 0) {
         ESP_LOGI(TAG, "------ SD 卡遍历缓存文件。数量：%d", fileCount);
-        qsort(fileNameList, fileCount, sizeof(char*), compare_file_name);// 文件名排序，正序。
+        qsort(fileNameList, fileCount, sizeof(char*), app_sd_compare_file_name);// 文件名排序，正序。
         char first_file_name[64];
         snprintf(first_file_name, sizeof(first_file_name), APP_SD_CACHE_DIR"/%s", fileNameList[0]);// 包括路径名。
         free(fileNameList[0]);
@@ -231,9 +234,36 @@ static int app_sd_write_log_file(const char* fmt, va_list args) {
 }
 
 /**
+ * @brief 删除全部日志文件。
+ */
+static void app_sd_delete_log_files() {
+    DIR* log_dir = opendir(APP_SD_LOG_DIR);
+    if (log_dir == NULL) {
+        ESP_LOGI(TAG, "------ SD 卡打开日志目录：失败！目录：%s", APP_SD_LOG_DIR);
+        return;
+    }
+    struct dirent* entry;
+    while ((entry = readdir(log_dir)) != NULL) {// 遍历目录。
+        char file_path[256];
+        snprintf(file_path, sizeof(file_path), "%s/%s", APP_SD_LOG_DIR, entry->d_name);
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {// 忽略 "." 和 ".."
+            continue;
+        }
+        remove(file_path);// 删除文件。
+    }
+    closedir(log_dir);
+}
+
+/**
 * @brief 创建日志文件。
 */
 static void app_sd_create_log_file(void) {
+
+    int log_file_count = count_files(APP_SD_LOG_DIR);
+    if (log_file_count > 100) {// 最多只保留 100 个日志文件。
+        app_sd_delete_log_files();
+    }
+
     time_t now;
     time(&now); // 获取当前时间（秒）。
     struct tm timeinfo;

@@ -49,6 +49,13 @@ static char s_buf[APP_AT_UART_BUF_SIZE + 1];
 static size_t s_total_bytes;
 static char* s_last_buf_end;
 
+/**
+ * @brief 从字符串中，查找子字符串。
+ * @param buffer
+ * @param buffer_length
+ * @param substring
+ * @return
+ */
 static char* find_substring(const char* buffer, size_t buffer_length, const char* substring) {
     size_t substring_length = strlen(substring);
     for (size_t i = 0; i <= buffer_length - substring_length; i++) {
@@ -91,7 +98,7 @@ static void app_gnss_read_uart_line(char** out_line_buf, size_t* out_line_len, i
     /* find start (a dollar sign) */
     char* start = memchr(s_buf, '$', s_total_bytes);
 
-    if (start == NULL) {
+    if (start == NULL) {// add by nyx 2024-07-20，查找 AT 命令返回值关键字。
         start = find_substring(s_buf, s_total_bytes, "+CSQ:");
         if (start == NULL) {
             s_total_bytes = 0;

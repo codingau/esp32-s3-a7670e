@@ -9,7 +9,7 @@
 #include "driver/gpio.h"
 
  /**
-  * @brief GPIO 操作函数。
+ * @brief GPIO 操作函数，改变返回 1，未改变返回 0。
   * @param level
   */
 int app_gpio_set_level(gpio_num_t gpio_num, uint32_t level);
@@ -19,6 +19,13 @@ int app_gpio_set_level(gpio_num_t gpio_num, uint32_t level);
  * @param
  */
 void app_gpio_power_restart(void);
+
+/**
+ * @brief 返回 GPIO 电平字符串。
+ * @param buffer
+ * @param size
+ */
+void app_gpio_get_string(char* buffer, size_t size);
 
 /**
  * @brief 初始化函数。

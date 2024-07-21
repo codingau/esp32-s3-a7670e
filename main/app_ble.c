@@ -94,12 +94,12 @@ static void app_ble_leave_task(void* param) {
         int ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
         if (cur_ts - ble_ts > APP_BLE_LEAVE_TIMEOUT) {// 如果蓝牙开关离开 1 分钟，则关闭。
             int ret = app_gpio_set_level(APP_GPIO_NUM_BLE, 0);
-            if (ret == 1) {
+            if (ret) {
                 ESP_LOGI(TAG, "------ 蓝牙接近开关: 关闭。");
             }
         } else {
             int ret = app_gpio_set_level(APP_GPIO_NUM_BLE, 1);// 如果蓝牙开关在 1 分钟内，则开启。
-            if (ret == 1) {
+            if (ret) {
                 ESP_LOGI(TAG, "------ 蓝牙接近开关: 开启。");
             }
         }

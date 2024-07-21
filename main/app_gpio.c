@@ -16,7 +16,7 @@
 static const char* TAG = "app_gpio";
 
 /**
- * @brief GPIO 操作函数。
+ * @brief GPIO 操作函数，改变返回 1，未改变返回 0。
  * @param level
  */
 int app_gpio_set_level(gpio_num_t gpio_num, uint32_t level) {
@@ -24,9 +24,13 @@ int app_gpio_set_level(gpio_num_t gpio_num, uint32_t level) {
     if (cur_level == level) {
         return 0;
     } else {
-        gpio_set_level(gpio_num, level);
-        ESP_LOGI(TAG, "------ GPIO 电平状态改变: %lu", level);
-        return 1;
+        esp_err_t ret = gpio_set_level(gpio_num, level);
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "------ GPIO 电平状态改变: %lu", level);
+            return 1;
+        } else {
+            return 0;
+        }
     }
 }
 
@@ -41,6 +45,19 @@ void app_gpio_power_reset(void) {
     app_gpio_set_level(APP_GPIO_NUM_POWER_RESET, 0);
     vTaskDelay(pdMS_TO_TICKS(1000));
     esp_restart();// 理论上，不会执行到这里。
+}
+
+/**
+ * @brief 返回 GPIO 电平字符串。
+ * @param buffer
+ * @param size
+ */
+void app_gpio_get_string(char* buffer, size_t size) {
+    int level = gpio_get_level(APP_GPIO_NUM_BLE);
+    int length = snprintf(buffer, size, "%d%d", APP_GPIO_NUM_BLE, level);
+    if (length >= size) {
+        ESP_LOGE(TAG, "------ GPIO 电平字符串被截断。");
+    }
 }
 
 /**

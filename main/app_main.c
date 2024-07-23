@@ -49,8 +49,8 @@ static app_main_data_t cur_data = {
     .dev_time = "19700101000000000",        // 初始化为起始时间。
     .log_ts = 0,                            // 初始为 0。
     .ble_ts = 0,                            // 初始为 0。
-    .gpio = {0},                            // GPIO 电平字符串。
-    .gnss_time = "19700101000000",          // 初始化为起始时间。
+    .gpios = {0},                           // GPIO 电平字符串。
+    .gnss_time = "19700101000000000",       // 初始化为起始时间。
     .gnss_valid = false,                    // 有效性为 false。
     .sat = 0,                               // 初始卫星数为 0。
     .alt = 0.0,                             // 初始高度设为 0.0 米。
@@ -82,7 +82,7 @@ void get_cur_utc_time(char* buffer, size_t buffer_size) {
  */
 void get_gnss_utc_time(char* buffer, size_t buffer_size) {
     struct tm timeinfo = app_gnss_data.date_time;
-    strftime(buffer, buffer_size, "%Y%m%d%H%M%S", &timeinfo);// GNSS 时间没有毫秒数。
+    strftime(buffer, buffer_size, "%Y%m%d%H%M%S000", &timeinfo);// GNSS 时间没有毫秒数。
 }
 
 /**
@@ -93,7 +93,7 @@ void app_main_loop_task(void) {
     get_cur_utc_time(cur_data.dev_time, sizeof(cur_data.dev_time));// 设备时间。
     cur_data.log_ts = esp_log_timestamp() / 1000;// 系统启动以后的秒数。
     cur_data.ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
-    app_gpio_get_string(cur_data.gpio, sizeof(cur_data.gpio));
+    app_gpio_get_string(cur_data.gpios, sizeof(cur_data.gpios));
 
     pthread_mutex_lock(&app_gnss_data.mutex);
     get_gnss_utc_time(cur_data.gnss_time, sizeof(cur_data.gnss_time));// GNSS 时间。

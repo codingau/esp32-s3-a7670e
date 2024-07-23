@@ -14,12 +14,13 @@ char* app_json_serialize(const app_main_data_t* data) {
 
     cJSON* root = cJSON_CreateObject();
 
-    cJSON_AddStringToObject(root, "dev_addr", data->dev_addr);
-    cJSON_AddStringToObject(root, "dev_time", data->dev_time);
-    cJSON_AddNumberToObject(root, "log_ts", data->log_ts);
-    cJSON_AddNumberToObject(root, "ble_ts", data->ble_ts);
-    cJSON_AddStringToObject(root, "gnss_time", data->gnss_time);
-    cJSON_AddBoolToObject(root, "gnss_valid", data->gnss_valid);
+    cJSON_AddStringToObject(root, "devAddr", data->dev_addr);
+    cJSON_AddStringToObject(root, "devTime", data->dev_time);
+    cJSON_AddNumberToObject(root, "logTs", data->log_ts);
+    cJSON_AddNumberToObject(root, "bleTs", data->ble_ts);
+    cJSON_AddStringToObject(root, "gpios", data->gpios);
+    cJSON_AddStringToObject(root, "gnssTime", data->gnss_time);
+    cJSON_AddBoolToObject(root, "gnssValid", data->gnss_valid);
     cJSON_AddNumberToObject(root, "sat", data->sat);
     cJSON_AddNumberToObject(root, "alt", data->alt);
     cJSON_AddNumberToObject(root, "lat", data->lat);

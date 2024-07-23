@@ -33,7 +33,14 @@ static const char* TAG = "app_gnss";
  * @brief 初始化 GNSS 数据。
  */
 app_gnss_data_t app_gnss_data = {
-    .date_time = {0},                       // 日期时间。
+    .date_time = {
+        .tm_year = 70,
+        .tm_mon = 0,
+        .tm_mday = 1,
+        .tm_hour = 0,
+        .tm_min = 0,
+        .tm_sec = 0
+     },                                     // 日期时间。
     .valid = false,                         // 有效性。
     .sat = 0,                               // 卫星数。
     .alt = 0.0,                             // 高度。

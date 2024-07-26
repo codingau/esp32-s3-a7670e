@@ -114,8 +114,10 @@ void app_main_loop_task(void) {
         int pub_ret = app_mqtt_publish(json);
         if (pub_ret < 0) {// 推送失败，写入缓存。
             app_sd_write_cache_file(cur_data.dev_time, json);
+            app_led_loop_mqtt(cur_data.log_ts, 0);
         } else {// 推送成功，检查缓存。
             app_sd_publish_cache(cur_data.log_ts);// 每间隔几分钟，检查缓存数据，并推送。推送 600 条数据，大约 2 秒。
+            app_led_loop_mqtt(cur_data.log_ts, 1);
         }
     } else {// 没有 MQTT，直接写入缓存文件。
         app_sd_write_cache_file(cur_data.dev_time, json);

@@ -82,7 +82,7 @@ esp_err_t app_modem_init(void) {
     modem_config_t modem_config = MODEM_DEFAULT_CONFIG();
     modem_config.handler = app_modem_event_handler;
     // 修正 modem_board_force_reset() 内部代码以适应当前开发板，
-    // 因为这个函数内部执行的低电平脉冲宽度不足 2 秒，参考 A7670C_R2_硬件设计手册_V1.06.pdf 模块复位章节。
+    // 因为 modem_board_force_reset() 函数内部执行的低电平脉冲宽度不足 2 秒，参考 A7670C_R2_硬件设计手册_V1.06.pdf 模块复位章节。
     modem_config.reset_func = app_modem_reset;
     esp_err_t board_ret = modem_board_init(&modem_config);
     return board_ret;

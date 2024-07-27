@@ -7,17 +7,15 @@
 #pragma once
 
  /**
-  * @brief 循环任务，消息发送成功：绿灯，发送失败保存到 SD 卡：黄灯。
-  * @param ts
+  * @brief 设置 LED RGB 的值。
+  * @param red
   * @param green
+  * @param blue
+  * @param red2
+  * @param green2
+  * @param blue2
   */
-void app_led_loop_mqtt(uint32_t ts, int green);
-
-/**
- * @brief 设置红灯闪烁次数。
- * @return
- */
-void app_led_error_num(uint32_t num);
+void app_led_set_value(uint32_t red, uint32_t green, uint32_t blue, uint32_t red2, uint32_t green2, uint32_t blue2);
 
 /**
  * @brief 初始化函数。

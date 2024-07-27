@@ -9,8 +9,13 @@
 #include "mqtt_client.h"
 
  /**
-  * @brief MQTT 5 客户端。
+  * @brief 最近一次发送 MQTT 的时间戳。
   */
+extern _Atomic uint32_t app_mqtt_last_ts;
+
+/**
+ * @brief MQTT 5 客户端。
+ */
 extern esp_mqtt_client_handle_t app_mqtt_5_client;
 
 /**

@@ -23,6 +23,7 @@
 
 #include "app_at.h"
 #include "app_led.h"
+#include "app_deamon.h"
 #include "app_sd.h"
 #include "app_wifi_ap.h"
 #include "app_modem.h"
@@ -40,6 +41,11 @@
  * @brief 日志 TAG。
  */
 static const char* TAG = "app_main";
+
+/**
+ * @brief 最近一次 LOOP 的时间戳。
+ */
+_Atomic uint32_t app_main_loop_last_ts = ATOMIC_VAR_INIT(0);
 
 /**
  * @brief 初始化推送数据。
@@ -90,8 +96,10 @@ void get_gnss_utc_time(char* buffer, size_t buffer_size) {
  * @param
  */
 void app_main_loop_task(void) {
+    uint32_t esp_log_ts = esp_log_timestamp();
+    atomic_store(&app_main_loop_last_ts, esp_log_ts);
     get_cur_utc_time(cur_data.dev_time, sizeof(cur_data.dev_time));// 设备时间。
-    cur_data.log_ts = esp_log_timestamp() / 1000;// 系统启动以后的秒数。
+    cur_data.log_ts = esp_log_ts / 1000;// 系统启动以后的秒数。
     cur_data.ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
     app_gpio_get_string(cur_data.gpios, sizeof(cur_data.gpios));
 
@@ -111,16 +119,20 @@ void app_main_loop_task(void) {
 
     // 如果有 MQTT，则 MQTT 推送到服务器。
     if (app_mqtt_5_client != NULL) {
+
         int pub_ret = app_mqtt_publish(json);
-        if (pub_ret < 0) {// 推送失败，写入缓存。
-            app_sd_write_cache_file(cur_data.dev_time, json);
-            app_led_loop_mqtt(cur_data.log_ts, 0);
-        } else {// 推送成功，检查缓存。
+        if (pub_ret >= 0) {// 推送成功，检查缓存。
             app_sd_publish_cache(cur_data.log_ts);// 每间隔几分钟，检查缓存数据，并推送。推送 600 条数据，大约 2 秒。
-            app_led_loop_mqtt(cur_data.log_ts, 1);
+            app_led_set_value(0, 1, 0, 0, 1, 0);// 只闪绿色。
+
+        } else {// 推送失败，写入缓存。
+            app_sd_write_cache_file(cur_data.dev_time, json);
+            app_led_set_value(2, 0, 0, 0, 1, 0);// 红绿交替闪烁。
         }
+
     } else {// 没有 MQTT，直接写入缓存文件。
         app_sd_write_cache_file(cur_data.dev_time, json);
+        app_led_set_value(2, 1, 0, 2, 1, 0);// 只闪黄色。
     }
 
     cJSON_free(json);// 必须在使用之后释放。
@@ -141,10 +153,19 @@ void app_main(void) {
         ESP_LOGI(TAG, "------ 初始化 LED：OK。");
     }
 
+    // 初始化守护任务。
+    esp_err_t deamon_ret = app_deamon_init();
+    if (deamon_ret != ESP_OK) {
+        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        ESP_LOGE(TAG, "------ 初始化守护任务：失败！");
+    } else {
+        ESP_LOGI(TAG, "------ 初始化守护任务：OK。");
+    }
+
     // 初始化 GPIO 执行模块。
     esp_err_t gpio_ret = app_gpio_init();
     if (gpio_ret != ESP_OK) {
-        app_led_error_num(1);// led 红色 n 次。
+        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 GPIO：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 GPIO：OK。");
@@ -153,7 +174,7 @@ void app_main(void) {
     // 初始化 AT 命令执行模块。
     esp_err_t at_ret = app_at_init();
     if (at_ret != ESP_OK) {
-        app_led_error_num(1);// led 红色 n 次。
+        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 AT：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 AT：OK。");
@@ -164,13 +185,13 @@ void app_main(void) {
     if (nvs_ret == ESP_ERR_NVS_NO_FREE_PAGES || nvs_ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {// 如果 NVS 分区空间不足或者发现新版本，需要擦除 NVS 分区并重试初始化。
         nvs_ret = nvs_flash_erase();
         if (nvs_ret != ESP_OK) {
-            app_led_error_num(2);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 擦除 NVS：失败！");
             return;
         }
         nvs_ret = nvs_flash_init();
         if (nvs_ret != ESP_OK) {
-            app_led_error_num(2);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 NVS：失败！");
             return;
         }
@@ -181,7 +202,7 @@ void app_main(void) {
     // 初始化事件循环，主要用于网络接口。
     esp_err_t event_loop_ret = esp_event_loop_create_default();
     if (event_loop_ret != ESP_OK) {
-        app_led_error_num(3);// led 红色 n 次。
+        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 EVENT_LOOP：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 EVENT_LOOP：OK。");
@@ -193,7 +214,7 @@ void app_main(void) {
     if (event_loop_ret == ESP_OK) {
         netif_ret = esp_netif_init();
         if (netif_ret != ESP_OK) {
-            app_led_error_num(3);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 NETIF：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 NETIF：OK。");
@@ -205,7 +226,7 @@ void app_main(void) {
     if (netif_ret == ESP_OK) {
         modem_ret = app_modem_init();
         if (modem_ret != ESP_OK) {
-            app_led_error_num(4);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 4G MODEM：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 4G MODEM：OK。");
@@ -216,7 +237,7 @@ void app_main(void) {
     if (netif_ret == ESP_OK) {
         esp_err_t wifi_ret = app_wifi_ap_init(cur_data.dev_addr);
         if (wifi_ret != ESP_OK) {
-            app_led_error_num(5);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 WIFI 热点：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 WIFI 热点：OK。");
@@ -227,7 +248,7 @@ void app_main(void) {
     if (gpio_ret == ESP_OK) {
         esp_err_t ble_ret = app_ble_init();
         if (ble_ret != ESP_OK) {
-            app_led_error_num(6);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
@@ -239,7 +260,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         sntp_ret = app_sntp_init();
         if (sntp_ret != ESP_OK) {
-            app_led_error_num(7);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 SNTP：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 SNTP：OK。");
@@ -251,7 +272,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         mqtt_ret = app_mqtt_init();
         if (mqtt_ret != ESP_OK) {
-            app_led_error_num(8);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
@@ -263,7 +284,7 @@ void app_main(void) {
     if (at_ret == ESP_OK) {
         esp_err_t gnss_ret = app_gnss_init();
         if (gnss_ret != ESP_OK) {
-            app_led_error_num(9);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
@@ -273,22 +294,24 @@ void app_main(void) {
     // 初始化 SD，并且创建日志文件。放在 GNSS 之后，是为了等待 SNTP 服务同步时间。过早创建日志文件，获取不到时间。
     esp_err_t sd_ret = app_sd_init();
     if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
-        app_led_error_num(10);// led 红色 n 次。
+        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");
     }
 
-    // 启动一个 PING 任务，用于状态监测。
+    // 初始化 PING 功能。
     if (modem_ret == ESP_OK) {
         esp_err_t ping_ret = app_ping_init();
         if (ping_ret != ESP_OK) {
-            app_led_error_num(10);// led 红色 n 次。
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 PING：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 PING：OK。");
         }
     }
+
+    app_status = 1;
 
     // 开启一个无限循环的主任务，每隔几秒写一次数据。
     ESP_LOGI(TAG, "------ APP MAIN 启动主任务循环......");
@@ -311,9 +334,9 @@ void app_main(void) {
         }
         if (cur_data.gnss_valid == false) {// 如果数据无效，延迟 4 秒，5 秒一次。
             vTaskDelay(pdMS_TO_TICKS(4000));
-        } else if (cur_data.spd < 2) {// 停止未移动，速度小于 3.704 公里，5 秒一次。
+        } else if (cur_data.spd < 5) {// 停止未移动，速度小于 9.26 公里，5 秒一次。
             vTaskDelay(pdMS_TO_TICKS(4000));
-        } else if (cur_data.spd < 22) {// 低速移动，速度小于 40.744 公里，2 秒一次。
+        } else if (cur_data.spd < 30) {// 低速移动，速度小于 55.56 公里，2 秒一次。
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }

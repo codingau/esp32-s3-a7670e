@@ -25,137 +25,90 @@
  /**
  * @brief 日志 TAG。
  */
-static const char* TAG = "app_led";
+ // static const char* TAG = "app_led";
 
-/**
- * @brief 灯条句柄。
- */
+ /**
+  * @brief 灯条句柄。
+  */
 static led_strip_handle_t led_strip;
 
 /**
- * @brief 初始化 led 状态值，启动时显示黄色。
+ * @brief 颜色值。
  */
-static uint32_t app_led_status_array[10][3] = {
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-    {1, 2, 0},
-};
+static _Atomic uint32_t app_led_red = ATOMIC_VAR_INIT(0);
 
 /**
- * @brief 循环任务，消息发送成功：绿灯，发送失败保存到 SD 卡：黄灯。
- * @param ts
- * @param green
+ * @brief 颜色值。
  */
-void app_led_loop_mqtt(uint32_t ts, int green) {
-    int i = ts % 10;
-    if (green) {
-        app_led_status_array[i][0] = 1;
-        app_led_status_array[i][1] = 0;
-    } else {
-        app_led_status_array[i][0] = 1;
-        app_led_status_array[i][1] = 2;
-    }
-
-}
+static _Atomic uint32_t app_led_green = ATOMIC_VAR_INIT(0);
 
 /**
- * @brief 设置红灯闪烁次数。
- * @param num
+ * @brief 颜色值。
  */
-void app_led_error_num(uint32_t num) {
-    for (size_t i = 0; i < num; i++) {
-        app_led_status_array[i][0] = 0;
-        app_led_status_array[i][1] = 5;
-    }
-    ESP_LOGI(TAG, "------ LED 状态改变：红色 %lu 次", num);
-}
+static _Atomic uint32_t app_led_blue = ATOMIC_VAR_INIT(0);
 
 /**
- * @brief 检测网络超时，检查信号强度，当网络超时-->GNSS未移动-->SIM信号正常，重启开发板。
- * @param
+ * @brief 颜色值。
  */
-static void app_led_check_and_restart(void) {
-    int ping_timeout_ts = atomic_load(&app_ping_timeout_ts);
-    if (ping_timeout_ts > 0) {
-
-        pthread_mutex_lock(&app_gnss_data.mutex);
-        bool gnss_valid = app_gnss_data.valid;
-        double spd = app_gnss_data.spd;
-        pthread_mutex_lock(&app_gnss_data.mutex);
-
-        pthread_mutex_lock(&app_at_data.mutex);
-        bool is_csq = app_at_data.is_csq;
-        int rssi = app_at_data.rssi;
-        int ber = app_at_data.ber;
-        pthread_mutex_unlock(&app_at_data.mutex);
-
-        if (gnss_valid && spd < 5) {// 如果 GSNN 数据有效，并且未移动时，检测信号状态。
-            if (is_csq == false) {// 如果没检测过 CSQ，发送检测命令。
-                app_at_send_command("AT+CGNSSPORTSWITCH=0,0\r\n");// 停止 GNSS 数据接收。
-                app_at_send_command("AT+CSQ\r\n");// 发送检测信号命令。
-                ESP_LOGE(TAG, "------ 暂停 GNSS 数据接收。app_gnss_data.spd = %f", spd);
-
-            } else {// 发送 CSQ 后，等待 CSQ 返回数据。
-
-                if (rssi == 99 || ber == 99 || rssi < 15 || ber > 5) {// 信号未知，或者信号弱，继续接收 GSNN 数据。
-                    pthread_mutex_lock(&app_at_data.mutex);
-                    app_at_data.is_csq = false;// 重置数据，等待下一次循环。
-                    app_at_data.rssi = 99;
-                    app_at_data.ber = 99;
-                    pthread_mutex_unlock(&app_at_data.mutex);
-                    app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
-                    ESP_LOGE(TAG, "------ 重新开始 GNSS 数据接收。rssi = %d, ber = %d", rssi, ber);
-
-                } else {
-                    ESP_LOGE(TAG, "------ 信号强度正常，并且是断网状态，重启开发板。执行：esp_restart();");
-                    esp_restart();
-                }
-            }
-        } else {
-            ESP_LOGE(TAG, "------ GNSS 数据无效，或者移动时，保持不变。app_gnss_data.valid = %d, app_gnss_data.spd = %f", gnss_valid, spd);
-
-        }
-    } else {// PING 返回正常。
-        if (app_at_data.is_csq) {// 如果正在接收 CSQ 数据，切换为开始接收 GNSS 数据
-            pthread_mutex_lock(&app_at_data.mutex);
-            app_at_data.is_csq = false;
-            app_at_data.rssi = 99;
-            app_at_data.ber = 99;
-            pthread_mutex_unlock(&app_at_data.mutex);
-            app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
-            ESP_LOGE(TAG, "------ PING 正常，重新开始接收 GNSS 数据。");
-        }
-    }
-}
+static _Atomic uint32_t app_led_red2 = ATOMIC_VAR_INIT(0);
 
 /**
- * @brief led 显示任务，10次状态灯，1次蓝色灯。
+ * @brief 颜色值。
+ */
+static _Atomic uint32_t app_led_green2 = ATOMIC_VAR_INIT(0);
+
+/**
+ * @brief 颜色值。
+ */
+static _Atomic uint32_t app_led_blue2 = ATOMIC_VAR_INIT(0);
+
+/**
+ * @brief led 显示任务。
+ * @param param
  */
 static void app_led_task(void* param) {
     while (led_strip != NULL) {
-        for (int i = 0; i < 10; i++) {
-            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, app_led_status_array[i][0], app_led_status_array[i][1], app_led_status_array[i][2]));
-            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
-            vTaskDelay(pdMS_TO_TICKS(500));
-            if (i == 9) {
-                ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 0, 0, 2));// 蓝色做为间隔符号。
-                ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
-                vTaskDelay(pdMS_TO_TICKS(500));
-            } else {
-                ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
-                vTaskDelay(pdMS_TO_TICKS(500));
-            }
-        }
+        int r = atomic_load(&app_led_red);
+        int g = atomic_load(&app_led_green);
+        int b = atomic_load(&app_led_blue);
+        int r2 = atomic_load(&app_led_red2);
+        int g2 = atomic_load(&app_led_green2);
+        int b2 = atomic_load(&app_led_blue2);
 
-        app_led_check_and_restart();// 每个周期检测一次网络状态。
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, g, r, b));// 交换 r 和 g。
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+        vTaskDelay(pdMS_TO_TICKS(200));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
+        vTaskDelay(pdMS_TO_TICKS(100));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, g2, r2, b2));// 交换 r 和 g。
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+        vTaskDelay(pdMS_TO_TICKS(200));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
+        vTaskDelay(pdMS_TO_TICKS(100));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 0, 0, 1));// 蓝色间隔。
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+        vTaskDelay(pdMS_TO_TICKS(200));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
+}
+
+/**
+ * @brief 设置 LED RGB 的值。
+ * @param red
+ * @param green
+ * @param blue
+ * @param red2
+ * @param green2
+ * @param blue2
+ */
+void app_led_set_value(uint32_t red, uint32_t green, uint32_t blue, uint32_t red2, uint32_t green2, uint32_t blue2) {
+    atomic_store(&app_led_red, red);
+    atomic_store(&app_led_green, green);
+    atomic_store(&app_led_blue, blue);
+    atomic_store(&app_led_red2, red2);
+    atomic_store(&app_led_green2, green2);
+    atomic_store(&app_led_blue2, blue2);
 }
 
 /**
@@ -182,5 +135,6 @@ esp_err_t app_led_init(void) {
     if (ret == ESP_OK) {
         xTaskCreate(app_led_task, "app_led_task", 2048, NULL, 10, NULL);// 启动 led 显示任务。
     }
+    app_led_set_value(2, 1, 0, 2, 1, 0);// 启动的时候，连续闪烁黄灯。
     return ret;
 }

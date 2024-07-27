@@ -24,10 +24,14 @@
 static const char* TAG = "app_at";
 
 /**
+ * @brief AT 命令接收标记。
+ */
+_Atomic int app_at_receive_flag = ATOMIC_VAR_INIT(0);
+
+/**
  * @brief 初始化 AT 接收数据。
  */
 app_at_data_t app_at_data = {
-    .is_csq = false,
     .rssi = 99,                             // 初始值应该设置为 99。
     .ber = 99,
     .mutex = PTHREAD_MUTEX_INITIALIZER      // 互斥锁。

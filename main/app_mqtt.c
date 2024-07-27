@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
 #include <pthread.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -22,6 +23,11 @@
 static const char* TAG = "app_mqtt";
 
 /**
+ * @brief 最近一次发送 MQTT 的时间戳。
+ */
+_Atomic uint32_t app_mqtt_last_ts = ATOMIC_VAR_INIT(0);
+
+/**
  * @brief MQTT 客户端。
  */
 esp_mqtt_client_handle_t app_mqtt_5_client;
@@ -33,7 +39,11 @@ esp_mqtt_client_handle_t app_mqtt_5_client;
  *          be zero) on success. -1 on failure, -2 in case of full outbox.
  */
 int app_mqtt_publish(char* msg) {
-    return esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUBLISH_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
+    int ret = esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUBLISH_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
+    if (ret >= 0) {
+        atomic_store(&app_mqtt_last_ts, esp_log_timestamp());
+    }
+    return ret;
 }
 
 /**

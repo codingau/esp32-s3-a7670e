@@ -9,8 +9,13 @@
 #include <stdbool.h>
 
  /**
-  * @brief 推送 JSON 数据结构。
+  * @brief 最近一次 LOOP 的时间戳。
   */
+extern _Atomic uint32_t app_main_loop_last_ts;
+
+/**
+ * @brief 推送 JSON 数据结构。
+ */
 typedef struct {
 
     char dev_addr[24];      // 设备地址。

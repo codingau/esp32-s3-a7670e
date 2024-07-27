@@ -9,10 +9,14 @@
 #include <pthread.h>
 
  /**
-  * @brief AT 接收数据结构。
+  * @brief AT 命令接收标记。
   */
+extern _Atomic int app_at_receive_flag;
+
+/**
+ * @brief AT 接收数据结构。
+ */
 typedef struct {
-    bool is_csq;
     int rssi;
     int ber;
     pthread_mutex_t mutex;              // 互斥锁。

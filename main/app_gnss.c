@@ -135,8 +135,9 @@ static void app_gnss_read_uart_line(char** out_line_buf, size_t* out_line_len, i
 
 /**
  * @brief 循环读取 UART 的任务。
+ * @param param
  */
-static void app_gnss_read_task() {
+static void app_gnss_read_task(void* param) {
 
     while (1) {
         char* start;
@@ -194,10 +195,10 @@ static void app_gnss_read_task() {
 
             pthread_mutex_lock(&app_at_data.mutex);
             at_csq_s* csq = (at_csq_s*)data;
-            app_at_data.is_csq = true;
             app_at_data.rssi = csq->rssi;
             app_at_data.ber = csq->ber;
             pthread_mutex_unlock(&app_at_data.mutex);
+            atomic_store(&app_at_receive_flag, 2);
         }
         if (data != NULL) {
             free(data);

@@ -9,7 +9,7 @@
  /**
   * @brief PING 超时，时间戳。
   */
-extern _Atomic int app_ping_timeout_flag;
+extern _Atomic int app_ping_ret;
 
 /**
  * @brief 开始 PING 网络。

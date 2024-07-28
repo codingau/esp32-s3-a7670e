@@ -33,14 +33,14 @@ static esp_ping_handle_t esp_ping_handle = NULL;
 /**
  * @brief PING 超时，时间戳。
  */
-_Atomic int app_ping_timeout_flag = ATOMIC_VAR_INIT(0);
+_Atomic int app_ping_ret = ATOMIC_VAR_INIT(0);
 
 /**
  * @brief PING 正常。
  */
 static void app_ping_cb_success(esp_ping_handle_t hdl, void* args) {
 
-    atomic_store(&app_ping_timeout_flag, 1);
+    atomic_store(&app_ping_ret, 1);
 
     uint8_t ttl;
     uint16_t seqno;
@@ -59,7 +59,7 @@ static void app_ping_cb_success(esp_ping_handle_t hdl, void* args) {
  */
 static void app_ping_cb_timeout(esp_ping_handle_t hdl, void* args) {
 
-    atomic_store(&app_ping_timeout_flag, 2);
+    atomic_store(&app_ping_ret, 2);
 
     uint16_t seqno;
     ip_addr_t target_addr;
@@ -76,7 +76,7 @@ esp_err_t app_ping_start() {
     if (esp_ping_handle == NULL) {
         return ESP_FAIL;
     }
-    atomic_store(&app_ping_timeout_flag, 0);
+    atomic_store(&app_ping_ret, 0);
     return esp_ping_start(esp_ping_handle);
 }
 

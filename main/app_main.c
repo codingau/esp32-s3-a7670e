@@ -98,6 +98,7 @@ void get_gnss_utc_time(char* buffer, size_t buffer_size) {
 void app_main_loop_task(void) {
     uint32_t esp_log_ts = esp_log_timestamp();
     atomic_store(&app_main_loop_last_ts, esp_log_ts);
+
     get_cur_utc_time(cur_data.dev_time, sizeof(cur_data.dev_time));// 设备时间。
     cur_data.log_ts = esp_log_ts / 1000;// 系统启动以后的秒数。
     cur_data.ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。

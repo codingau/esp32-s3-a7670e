@@ -89,8 +89,8 @@ esp_err_t app_mqtt_init(void) {
         .credentials.username = APP_MQTT_USERNAME,
         .credentials.authentication.password = APP_MQTT_PASSWORD,
 
-        .network.timeout_ms = 10000,// 网络操作超时为 10 秒。MQTT_NETWORK_TIMEOUT_MS 默认 10 秒。
-        .network.reconnect_timeout_ms = 10000,// 设置重连间隔为 10 秒。MQTT_RECON_DEFAULT_MS 默认 10 秒。
+        .network.timeout_ms = 2000,// 网络操作超时为 2 秒。MQTT_NETWORK_TIMEOUT_MS 默认 10 秒。
+        .network.reconnect_timeout_ms = 2000,// 设置重连间隔为 2 秒。MQTT_RECON_DEFAULT_MS 默认 10 秒。
         .network.disable_auto_reconnect = false,    // 自动连接！
 
         .session.last_will.topic = APP_MQTT_WILL_TOPIC,

@@ -268,18 +268,6 @@ void app_main(void) {
         }
     }
 
-    // 初始化 MQTT，失败不终止运行。可以写数据到本地。
-    esp_err_t mqtt_ret = ESP_FAIL;
-    if (modem_ret == ESP_OK) {
-        mqtt_ret = app_mqtt_init();
-        if (mqtt_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
-            ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
-        } else {
-            ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
-        }
-    }
-
     // GNSS 上电需要时间，所以放到最后执行。
     // 初始化 GNSS，失败不终止运行。没有定位数据也能凑合着跑。
     if (at_ret == ESP_OK) {
@@ -289,6 +277,18 @@ void app_main(void) {
             ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
+        }
+    }
+
+    // 初始化 MQTT，失败不终止运行。可以写数据到本地。
+    esp_err_t mqtt_ret = ESP_FAIL;
+    if (modem_ret == ESP_OK) {
+        mqtt_ret = app_mqtt_init();
+        if (mqtt_ret != ESP_OK) {
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
+        } else {
+            ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
         }
     }
 

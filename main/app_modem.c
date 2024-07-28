@@ -20,9 +20,18 @@
 static const char* TAG = "app_modem";
 
 /**
+ * @brief MODEM 重置函数。
+ * @param
+ */
+void app_modem_reset(void) {
+    app_at_send_command("AT+CRESET\r\n");
+    ESP_LOGI(TAG, "------ 使用 UART 发送 AT 命令，重置 MODEM。");
+}
+
+/**
  * @brief 猫的事件回调函数。
  * @param arg
- * @param event_base
+    * @param event_base
  * @param event_id
  * @param event_data
  */
@@ -65,15 +74,6 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
 }
 
 /**
- * @brief MODEM 重置函数。
- * @param
- */
-void app_modem_reset(void) {
-    app_at_send_command("AT+CRESET\r\n");
-    ESP_LOGI(TAG, "------ 使用 UART 发送 AT 命令，重置 MODEM。");
-}
-
-/**
  * @brief 初始化函数。
  * @param
  * @return
@@ -81,9 +81,17 @@ void app_modem_reset(void) {
 esp_err_t app_modem_init(void) {
     modem_config_t modem_config = MODEM_DEFAULT_CONFIG();
     modem_config.handler = app_modem_event_handler;
+    modem_config.flags |= MODEM_FLAGS_INIT_NOT_ENTER_PPP;// 不自动进入 PPP，下边代码手动进入。
+    // If auto enter ppp and block until ppp got ip。因为不自动进入 PPP，所以下边这个参数，不起任何作用。
+    modem_config.flags |= MODEM_FLAGS_INIT_NOT_BLOCK;// modem_board_init() 函数，非阻塞。 
+
+    // modem_config.
     // 修正 modem_board_force_reset() 内部代码以适应当前开发板，
     // 因为 modem_board_force_reset() 函数内部执行的低电平脉冲宽度不足 2 秒，参考 A7670C_R2_硬件设计手册_V1.06.pdf 模块复位章节。
     modem_config.reset_func = app_modem_reset;
     esp_err_t board_ret = modem_board_init(&modem_config);
+    if (board_ret == ESP_OK) {
+        board_ret = modem_board_ppp_start(10000);
+    }
     return board_ret;
 }

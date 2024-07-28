@@ -154,6 +154,15 @@ void app_main(void) {
         ESP_LOGI(TAG, "------ 初始化 LED：OK。");
     }
 
+    // 初始化 SD，并且创建日志文件。放在 GNSS 之后，是为了等待 SNTP 服务同步时间。过早创建日志文件，获取不到时间。
+    esp_err_t sd_ret = app_sd_init();
+    if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
+        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
+    } else {
+        ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");
+    }
+
     // 初始化守护任务。
     esp_err_t deamon_ret = app_deamon_init();
     if (deamon_ret != ESP_OK) {
@@ -268,18 +277,6 @@ void app_main(void) {
         }
     }
 
-    // GNSS 上电需要时间，所以放到最后执行。
-    // 初始化 GNSS，失败不终止运行。没有定位数据也能凑合着跑。
-    if (at_ret == ESP_OK) {
-        esp_err_t gnss_ret = app_gnss_init();
-        if (gnss_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
-            ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
-        } else {
-            ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
-        }
-    }
-
     // 初始化 MQTT，失败不终止运行。可以写数据到本地。
     esp_err_t mqtt_ret = ESP_FAIL;
     if (modem_ret == ESP_OK) {
@@ -292,15 +289,6 @@ void app_main(void) {
         }
     }
 
-    // 初始化 SD，并且创建日志文件。放在 GNSS 之后，是为了等待 SNTP 服务同步时间。过早创建日志文件，获取不到时间。
-    esp_err_t sd_ret = app_sd_init();
-    if (sd_ret != ESP_OK) {// 如果 SD 卡初始化失败，闪灯但不停止工作。
-        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
-        ESP_LOGE(TAG, "------ 初始化 SD 卡：失败！");
-    } else {
-        ESP_LOGI(TAG, "------ 初始化 SD 卡：OK。");
-    }
-
     // 初始化 PING 功能。
     if (modem_ret == ESP_OK) {
         esp_err_t ping_ret = app_ping_init();
@@ -309,6 +297,18 @@ void app_main(void) {
             ESP_LOGE(TAG, "------ 初始化 PING：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 PING：OK。");
+        }
+    }
+
+    // GNSS 上电需要时间，所以放到最后执行。
+    // 初始化 GNSS，失败不终止运行。没有定位数据也能凑合着跑。
+    if (at_ret == ESP_OK) {
+        esp_err_t gnss_ret = app_gnss_init();
+        if (gnss_ret != ESP_OK) {
+            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
+        } else {
+            ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");
         }
     }
 

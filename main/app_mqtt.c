@@ -14,7 +14,7 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 
-#include "app_wifi_ap.h"
+#include "app_modem.h"
 #include "app_config.h"
 
  /**
@@ -80,6 +80,14 @@ static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, in
  * @return
  */
 esp_err_t app_mqtt_init(void) {
+
+    for (int i = 10; i > 0; i--) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGI(TAG, "------ MQTT 初始化，等待网络连接。%d", i);
+        if (atomic_load(&app_modem_net_conn) == 1) {
+            break;
+        }
+    }
 
     char will_msg[] = APP_MQTT_WILL_MSG;
 

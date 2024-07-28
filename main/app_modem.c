@@ -4,6 +4,7 @@
  * @author  nyx
  * @date    2024-06-28
  */
+#include <stdatomic.h>
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_event.h"
@@ -18,6 +19,11 @@
  * @brief 日志 TAG。
  */
 static const char* TAG = "app_modem";
+
+/**
+ * @brief 网络是否已连接。
+ */
+_Atomic int app_modem_net_conn = ATOMIC_VAR_INIT(0);
 
 /**
  * @brief MODEM 重置函数。
@@ -57,6 +63,7 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
 
         } else if (event_id == MODEM_EVENT_NET_CONN) {
             ESP_LOGI(TAG, "------ Modem Board Event: 网络连接。");
+            atomic_store(&app_modem_net_conn, 1);
 
         } else if (event_id == MODEM_EVENT_NET_DISCONN) {
             ESP_LOGW(TAG, "------ Modem Board Event: 网络断开！");
@@ -91,7 +98,8 @@ esp_err_t app_modem_init(void) {
     modem_config.reset_func = app_modem_reset;
     esp_err_t board_ret = modem_board_init(&modem_config);
     if (board_ret == ESP_OK) {
-        board_ret = modem_board_ppp_start(10000);
+        board_ret = modem_board_ppp_start(30000);
+        modem_board_ppp_auto_connect(true);
     }
     return board_ret;
 }

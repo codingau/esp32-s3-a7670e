@@ -20,6 +20,11 @@
 #include "app_at.h"
 #include "app_gnss.h"
 
+ /*
+ * PING 网络地址。
+ */
+#define APP_PING_ADDRESS    "8.8.8.8"
+
  /**
   * @brief 日志 TAG。
   */

@@ -7,9 +7,14 @@
 #pragma once
 
  /**
-  * @brief MODEM 重置函数。
-  * @param
+  * @brief 网络是否已连接。
   */
+extern _Atomic int app_modem_net_conn;
+
+/**
+ * @brief MODEM 重置函数。
+ * @param
+ */
 void app_modem_reset(void);
 
 /**

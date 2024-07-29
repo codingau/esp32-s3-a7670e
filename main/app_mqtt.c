@@ -54,11 +54,12 @@ int app_mqtt_publish_msg(char* msg) {
 
 /**
  * @brief MQTT 发日志给服务器。
+ * @param topic
  * @param msg
  * @return
  */
-int app_mqtt_publish_log(char* log) {
-    int ret = esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUB_LOG_TOPIC, log, strlen(log), APP_MQTT_QOS, 0);
+int app_mqtt_publish_log(char* topic, char* log) {
+    int ret = esp_mqtt_client_publish(app_mqtt_5_client, topic, log, strlen(log), APP_MQTT_QOS, 0);
     return ret;
 }
 

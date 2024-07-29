@@ -28,10 +28,11 @@ int app_mqtt_publish_msg(char* msg);
 
 /**
  * @brief MQTT 发日志给服务器。
+ * @param topic
  * @param msg
  * @return
  */
-int app_mqtt_publish_log(char* log);
+int app_mqtt_publish_log(char* topic, char* log);
 
 /**
  * @brief 初始化函数。

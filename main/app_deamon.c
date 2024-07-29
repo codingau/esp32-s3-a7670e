@@ -130,7 +130,7 @@ static void app_deamon_network_task(void* param) {
                         if (ping_ret > 0) {// 如果有返回值。
                             break;
                         }
-                        if (i == 10) {// 最后一次循环，还没有结果情况，等同于超时。
+                        if (i == 10) {// 最后一次循环，还没有结果的情况，等同于超时。
                             ping_ret = -1;
                         }
                     }

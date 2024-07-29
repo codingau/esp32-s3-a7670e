@@ -17,6 +17,7 @@
 
 #include "app_main.h"
 #include "app_mqtt.h"
+#include "app_config.h"
 
  /**
  * @brief SD 卡引脚配置，这个板只有1条数据脚。
@@ -355,7 +356,6 @@ void app_sd_publish_bak_file(void) {
         if (file == NULL) {
             return;
         }
-        int64_t ts = esp_timer_get_time() / 1000;// 当前时间的毫秒数。
         int line_count = 0;
         char line[1000];
         while (fgets(line, sizeof(line), file) != NULL) {// 逐行读取文件内容。
@@ -363,9 +363,9 @@ void app_sd_publish_bak_file(void) {
             if (len > 0 && line[len - 1] == '\n') {
                 line[len - 1] = '\0'; // 将换行符替换为 NULL 终止符。
             }
-            char buffer[1024];
-            snprintf(buffer, sizeof(buffer), "%s\t%" PRId64 "\t%s", app_main_data.dev_addr, ts, line);
-            int pub_ret = app_mqtt_publish_log(buffer);
+            char topic[100];
+            snprintf(topic, sizeof(topic), "%s/%s", APP_MQTT_PUB_LOG_TOPIC, app_main_data.dev_addr);
+            int pub_ret = app_mqtt_publish_log(topic, line);
             if (pub_ret < 0) {// 只要有一次发送失败，就跳出循环，不再继续执行。
                 ESP_LOGW(TAG, "------ SD 卡推送日志备份文件：中断。文件名：%s，推送行数：%d", APP_SD_LOG_BAK_NAME, line_count);
                 break;
@@ -373,8 +373,7 @@ void app_sd_publish_bak_file(void) {
             line_count++;
 
         }
-        fclose(file);
-        remove(APP_SD_LOG_BAK_NAME);// 推送结束后，删除 LOG.BAK 文件。
+        fclose(file);// 推送结束后，不要删除 LOG.BAK 文件，因为 SNTP 触发本地备份，可能会晚于 MQTT 推送备份。
         ESP_LOGI(TAG, "------ SD 卡推送日志备份文件：完成。文件名：%s，推送行数：%d", APP_SD_LOG_BAK_NAME, line_count);
     }
 }

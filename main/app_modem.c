@@ -26,10 +26,11 @@ static const char* TAG = "app_modem";
 _Atomic int app_modem_net_conn = ATOMIC_VAR_INIT(0);
 
 /**
- * @brief MODEM 重置函数。
+ * @brief MODEM 重置函数，只能在启动的时候调用，否则异常。
+ * IOT_USBH: ./components/espressif__iot_usbh/iot_usbh.c:543 (iot_usbh_pipe_init):pipe alloc failed
  * @param
  */
-void app_modem_reset(void) {
+static void app_modem_reset(void) {
     app_at_send_command("AT+CRESET\r\n");
     ESP_LOGI(TAG, "------ 使用 UART 发送 AT 命令，重置 MODEM。");
 }
@@ -86,8 +87,12 @@ static void app_modem_event_handler(void* arg, esp_event_base_t event_base, int3
  * @return
  */
 esp_err_t app_modem_init(void) {
+
+    app_modem_reset();// 重置猫。
+
     modem_config_t modem_config = MODEM_DEFAULT_CONFIG();
     modem_config.handler = app_modem_event_handler;
+    modem_config.flags |= MODEM_FLAGS_INIT_NOT_FORCE_RESET;// modem_board_init() 时不要重置，进入之前已重置。
     modem_config.flags |= MODEM_FLAGS_INIT_NOT_ENTER_PPP;// 不自动进入 PPP，下边代码手动进入。
     // If auto enter ppp and block until ppp got ip。因为不自动进入 PPP，所以下边这个参数，不起任何作用。
     modem_config.flags |= MODEM_FLAGS_INIT_NOT_BLOCK;// modem_board_init() 函数，非阻塞。 
@@ -99,7 +104,6 @@ esp_err_t app_modem_init(void) {
     esp_err_t board_ret = modem_board_init(&modem_config);
     if (board_ret == ESP_OK) {
         board_ret = modem_board_ppp_start(30000);
-        modem_board_ppp_auto_connect(true);
     }
     return board_ret;
 }

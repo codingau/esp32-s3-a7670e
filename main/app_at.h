@@ -9,13 +9,8 @@
 #include <pthread.h>
 
  /**
-  * @brief AT 命令接收标记。
+  * @brief AT 接收数据结构。
   */
-extern _Atomic int app_at_receive_flag;
-
-/**
- * @brief AT 接收数据结构。
- */
 typedef struct {
     int rssi;
     int ber;

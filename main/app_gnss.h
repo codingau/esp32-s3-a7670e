@@ -32,6 +32,12 @@ typedef struct {
 extern app_gnss_data_t app_gnss_data;
 
 /**
+ * @brief 发送 AT 命令，启动 GNSS 接收。
+ * @param
+ */
+void app_gnss_send_command(void);
+
+/**
  * @brief 初始化函数。
  * @return
  */

@@ -7,7 +7,7 @@
 #pragma once
 
  /**
-  * @brief PING 超时，时间戳。
+  * @brief PING 返回 time。
   */
 extern _Atomic int app_ping_ret;
 

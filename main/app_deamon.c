@@ -15,6 +15,7 @@
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "mqtt_client.h"
+#include "usbh_modem_board.h"
 
 #include "app_config.h"
 #include "app_at.h"
@@ -22,6 +23,7 @@
 #include "app_mqtt.h"
 #include "app_gnss.h"
 #include "app_main.h"
+#include "app_modem.h"
 
  /**
  * @brief 日志 TAG。
@@ -34,92 +36,68 @@ static const char* TAG = "app_deamon";
 int app_status = 0;
 
 /**
- * @brief 发送 AT+CSQ 命令的次数。
+ * @brief 网络状态。
  */
-static int send_csq_count = 0;
+static int app_deamon_ppp_status = 1;
+
 /**
- * @brief 发送信号检测 AT 命令，等待返回值。
+ * @brief 检测 SIM 卡状态。
+ * @param
  */
-static void app_deamon_receive_csq(void) {
-    app_at_send_command("AT+CGNSSPORTSWITCH=0,0\r\n");// 停止 GNSS 数据接收。
-    vTaskDelay(pdMS_TO_TICKS(200));// 等待一下。
-    app_at_send_command("AT+CSQ\r\n");// 发送检测信号命令。
-    atomic_store(&app_at_receive_flag, 1);
-    send_csq_count++;
-    if (send_csq_count > 60) {
-        ESP_LOGE(TAG, "------ 发送 AT+CSQ 命令 60 秒，无返回值，重启开发板。执行：esp_restart();");
+static void app_demon_ckeck_sim_state(void) {
+    int if_ready = false;
+    if (modem_board_get_sim_cart_state(&if_ready) == ESP_OK) {
+        if (if_ready == true) {
+            ESP_LOGI(TAG, "------ 检测 SIM 卡，状态：正常。");
+        } else {
+            ESP_LOGW(TAG, "------ 检测 SIM 卡，状态：失败！没有 SIM 卡，或 PIN 错误，延迟 30 秒重启开发板。");
+            vTaskDelay(pdMS_TO_TICKS(30000));
+            esp_restart();
+        }
+    } else {
+        ESP_LOGE(TAG, "------ 检测 SIM 卡，状态：异常！延迟 30 秒重启开发板。");
+        vTaskDelay(pdMS_TO_TICKS(30000));
+        esp_restart();
     }
-}
-
-/**
- * @brief 发送 GNSS 命令，切换 UART 接收数据为 GNSS。
- */
-static void app_deamon_receive_gnss(void) {
-    app_at_send_command("AT+CGNSSPORTSWITCH=0,1\r\n");// 开始 GNSS 数据接收。
-    atomic_store(&app_at_receive_flag, 0);
-
-    pthread_mutex_lock(&app_at_data.mutex);
-    app_at_data.rssi = 99;
-    app_at_data.ber = 99;
-    pthread_mutex_unlock(&app_at_data.mutex);
-
-    send_csq_count = 0;
 }
 
 /**
  * @brief 检测网络超时，检查信号强度，当网络超时-->GNSS未移动-->SIM信号正常，重启开发板。
  * @param ping_ret
  */
-static void app_deamon_signal_check_and_restart(int ping_ret) {
+static void app_deamon_check_signal_and_restart_ppp(void) {
 
-    if (ping_ret == 0) {
-        ESP_LOGW(TAG, "------ PING 返回值：非法！！！");
+    if (app_deamon_ppp_status == 1) {// 如果上网状态。
+        esp_err_t stop_ret = modem_board_ppp_stop(30000);
+        if (stop_ret == ESP_OK) {
+            app_deamon_ppp_status = 0;
+            ESP_LOGI(TAG, "------ 停止 4G 上网：成功。");
 
-    } else if (ping_ret == 1) {
-        ESP_LOGI(TAG, "------ PING 返回值：正常。等待 MQTT 客户端自动重连......");
-        if (atomic_load(&app_at_receive_flag) != 0) {// 如果正在接收 CSQ 数据，切换为开始接收 GNSS 数据。
-            app_deamon_receive_gnss();
+        } else {
+            ESP_LOGE(TAG, "------ 停止 4G 上网：失败！稍后重试：modem_board_ppp_stop()");
         }
-        vTaskDelay(pdMS_TO_TICKS(10000));// 等待 10 秒，减少 PING 次数。
 
-    } else if (ping_ret == 2) {
+    } else {
 
-        pthread_mutex_lock(&app_gnss_data.mutex);
-        bool gnss_valid = app_gnss_data.valid;
-        double spd = app_gnss_data.spd;
-        pthread_mutex_unlock(&app_gnss_data.mutex);
-        ESP_LOGE(TAG, "------ PING 返回值：超时！gnss_valid = %d, spd = %f", gnss_valid, spd);
+        app_demon_ckeck_sim_state();// 先检测 SIM 状态。
 
-        if (spd < 5) {// 如果未移动时，检测信号状态。
-            int receive_flag = atomic_load(&app_at_receive_flag);
-            if (receive_flag == 0 || receive_flag == 1) {// 如果没检测过 CSQ，发送检测命令。
-                ESP_LOGI(TAG, "------ 暂停 GNSS 数据接收，发送 AT+CSQ 命令，检测 4G 信号强度。spd = %f", spd);
-                app_deamon_receive_csq();
-
-            } else if (receive_flag == 2) {// 发送 CSQ 后，等待 CSQ 返回数据。
-
-                pthread_mutex_lock(&app_at_data.mutex);
-                int rssi = app_at_data.rssi;
-                int ber = app_at_data.ber;
-                pthread_mutex_unlock(&app_at_data.mutex);
-                ESP_LOGI(TAG, "------ AT+CSQ 命令，接收返回值。rssi = %d, ber = %d", rssi, ber);
-
-                if (rssi == 99 || ber == 99 || rssi < 15) {// 信号未知，或者信号弱，继续接收 GNSS 数据。
-                    ESP_LOGI(TAG, "------ 4G 信号未知，或者信号弱，继续接收 GNSS 数据。");
-                    app_deamon_receive_gnss();
-                    vTaskDelay(pdMS_TO_TICKS(10000));// 等待 10 秒，减少检测 4G 信号的频率。
-
-                } else {
-                    ESP_LOGE(TAG, "------ 4G 信号强度正常，并且是断网状态，重启开发板。执行：esp_restart();");
-                    esp_restart();
-                }
+        ESP_LOGI(TAG, "------ 发送 AT+CSQ 命令，检测 4G 信号强度。");
+        int rssi = 0, ber = 0;
+        esp_err_t quality_ret = modem_board_get_signal_quality(&rssi, &ber);
+        if (quality_ret == ESP_OK) {
+            ESP_LOGI(TAG, "------ AT+CSQ 命令，返回：成功。返回值：rssi = %d, ber = %d", rssi, ber);
+            if (rssi == 99 || rssi < 15) {
+                ESP_LOGE(TAG, "------ 4G 信号未知，或者信号弱，保持断网状态。");
+            } else {
+                ESP_LOGI(TAG, "------ 4G 信号强度正常，尝试 PPP 拔号。");
+                modem_board_ppp_start(30000);
+                app_deamon_ppp_status = 1;
+                vTaskDelay(pdMS_TO_TICKS(10000));// 增加 10 秒，等待 MQTT 自动重连的时间。
             }
         } else {
-            ESP_LOGE(TAG, "------ 移动速度大于 5 节时，不检测 4G 信号强度。app_gnss_data.spd = %f", spd);
-            if (atomic_load(&app_at_receive_flag) != 0) {// 如果正在接收 CSQ 数据，切换为开始接收 GNSS 数据。
-                app_deamon_receive_gnss();
-            }
+            ESP_LOGI(TAG, "------ AT+CSQ 命令，返回：失败！");
         }
+        vTaskDelay(pdMS_TO_TICKS(10000));// 等待 10 秒，降低检测频率。
     }
 }
 
@@ -139,28 +117,37 @@ static void app_deamon_network_task(void* param) {
             uint32_t mqtt_last_ts = atomic_load(&app_mqtt_last_ts);
             if (cur_ts - mqtt_last_ts > 10000) {// 大于 10 秒。
 
-                esp_err_t ping_start_ret = app_ping_start();
-                if (ping_start_ret != ESP_OK) {
-                    ESP_LOGE(TAG, "------ PING 函数执行结果：失败！立即执行：esp_restart()");
-                    esp_restart();
-                }
-                int ping_ret = 0;
-                for (int i = 0; i < 11; i++) {
-                    vTaskDelay(pdMS_TO_TICKS(100));// 每个循环等待 100 毫秒。
-                    ping_ret = atomic_load(&app_ping_ret);
-                    if (ping_ret > 0) {// 如果有返回值。
-                        break;
+                if (app_deamon_ppp_status == 1) {
+                    esp_err_t ping_start_ret = app_ping_start();
+                    if (ping_start_ret != ESP_OK) {
+                        ESP_LOGE(TAG, "------ PING 函数执行结果：失败！立即执行：esp_restart()");
+                        esp_restart();
                     }
-                    if (i == 10) {// 最后一次循环，还没有结果情况，等同于超时。
-                        ping_ret = 2;
+                    int ping_ret = 0;
+                    for (int i = 0; i < 11; i++) {
+                        vTaskDelay(pdMS_TO_TICKS(100));// 每个循环等待 100 毫秒。
+                        ping_ret = atomic_load(&app_ping_ret);
+                        if (ping_ret > 0) {// 如果有返回值。
+                            break;
+                        }
+                        if (i == 10) {// 最后一次循环，还没有结果情况，等同于超时。
+                            ping_ret = -1;
+                        }
                     }
-                }
-                app_deamon_signal_check_and_restart(ping_ret);
+                    if (ping_ret == -1) {// 断网状态，直接检测信号。
+                        app_deamon_check_signal_and_restart_ppp();
+                    } else {
+                        ESP_LOGI(TAG, "------ PING 返回 time 值：%d。等待 MQTT 客户端自动重连......", ping_ret);
+                        vTaskDelay(pdMS_TO_TICKS(10000));// 等待 10 秒，减少 PING 次数。
+                    }
 
-            } else {// 如果 MQTT 正常，重新接收 GNSS 数据。
-                if (atomic_load(&app_at_receive_flag) != 0) {// 如果正在接收 CSQ 数据，切换为开始接收 GNSS 数据。
-                    app_deamon_receive_gnss();
-                    ESP_LOGI(TAG, "------ MQTT 正常发送，重新开始接收 GNSS 数据。");
+                } else {// 断网状态，直接检测信号。
+                    app_deamon_check_signal_and_restart_ppp();
+                }
+
+            } else {// 如果 MQTT 正常，PPP 状态设置为 1。
+                if (app_deamon_ppp_status == 0) {
+                    app_deamon_ppp_status = 1;
                 }
             }
         }
@@ -189,10 +176,6 @@ static void app_deamon_loop_task(void* param) {
             ESP_LOGE(TAG, "------ app_main_loop_task() 执行超时！！！立即执行：esp_restart()");
             esp_restart();
         }
-
-        // if (count == 2) {
-        //     esp_mqtt_client_stop(app_mqtt_5_client);
-        // }
 
         vTaskDelay(pdMS_TO_TICKS(30000));// 每 30 秒执行一次。
         count++;

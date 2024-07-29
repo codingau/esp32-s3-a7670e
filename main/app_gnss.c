@@ -198,7 +198,6 @@ static void app_gnss_read_task(void* param) {
             app_at_data.rssi = csq->rssi;
             app_at_data.ber = csq->ber;
             pthread_mutex_unlock(&app_at_data.mutex);
-            atomic_store(&app_at_receive_flag, 2);
         }
         if (data != NULL) {
             free(data);
@@ -219,11 +218,10 @@ static void app_gnss_print_uart_line() {
 }
 
 /**
- * @brief 初始化函数。
- * @return
+ * @brief 发送 AT 命令，启动 GNSS 接收。
+ * @param
  */
-esp_err_t app_gnss_init(void) {
-
+void app_gnss_send_command(void) {
     app_at_send_command("AT+CGNSSPWR=1,1\r\n");// 上电，并且激活 GNSS AP_Flash 快速热启动。
     app_gnss_print_uart_line();
     for (int i = 10; i > 0; i--) {
@@ -255,8 +253,14 @@ esp_err_t app_gnss_init(void) {
     app_gnss_print_uart_line();
     ESP_LOGI(TAG, "------ 切换 GNSS 数据输出端口：UART。");
     vTaskDelay(pdMS_TO_TICKS(1000));// 延迟 1 秒，再进行下一步。
+}
 
+/**
+ * @brief 初始化函数。
+ * @return
+ */
+esp_err_t app_gnss_init(void) {
+    app_gnss_send_command();
     xTaskCreate(app_gnss_read_task, "app_gnss_read_task", 3072, NULL, 8, NULL);// 启动接收任务。
-
     return ESP_OK;
 }

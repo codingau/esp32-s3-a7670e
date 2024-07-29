@@ -12,12 +12,6 @@
 extern _Atomic int app_modem_net_conn;
 
 /**
- * @brief MODEM 重置函数。
- * @param
- */
-void app_modem_reset(void);
-
-/**
  * @brief 初始化函数。
  * @return
  */

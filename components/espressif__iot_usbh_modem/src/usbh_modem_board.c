@@ -289,7 +289,6 @@ static void on_modem_event(void* arg, esp_event_base_t event_base,
         switch (event_id) {
             default:
                 ESP_LOGW(TAG, "Modem event! %"PRIi32"", event_id);
-                esp_event_post(MODEM_BOARD_EVENT, event_id, NULL, 0, 0);// add by nyx 2021-07-28
                 break;
         }
     }

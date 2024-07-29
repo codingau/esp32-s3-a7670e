@@ -24,11 +24,6 @@
 static const char* TAG = "app_at";
 
 /**
- * @brief AT 命令接收标记。
- */
-_Atomic int app_at_receive_flag = ATOMIC_VAR_INIT(0);
-
-/**
  * @brief 初始化 AT 接收数据。
  */
 app_at_data_t app_at_data = {

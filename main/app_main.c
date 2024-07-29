@@ -167,6 +167,7 @@ void app_main(void) {
     esp_err_t deamon_ret = app_deamon_init();
     if (deamon_ret != ESP_OK) {
         app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_sd_fsync_log_file();// 把日志写入 SD 卡。
         ESP_LOGE(TAG, "------ 初始化守护任务：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化守护任务：OK。");
@@ -176,6 +177,7 @@ void app_main(void) {
     esp_err_t gpio_ret = app_gpio_init();
     if (gpio_ret != ESP_OK) {
         app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_sd_fsync_log_file();// 把日志写入 SD 卡。
         ESP_LOGE(TAG, "------ 初始化 GPIO：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 GPIO：OK。");
@@ -185,6 +187,7 @@ void app_main(void) {
     esp_err_t at_ret = app_at_init();
     if (at_ret != ESP_OK) {
         app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_sd_fsync_log_file();// 把日志写入 SD 卡。
         ESP_LOGE(TAG, "------ 初始化 AT：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 AT：OK。");
@@ -196,12 +199,14 @@ void app_main(void) {
         nvs_ret = nvs_flash_erase();
         if (nvs_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 擦除 NVS：失败！");
             return;
         }
         nvs_ret = nvs_flash_init();
         if (nvs_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 NVS：失败！");
             return;
         }
@@ -213,6 +218,7 @@ void app_main(void) {
     esp_err_t event_loop_ret = esp_event_loop_create_default();
     if (event_loop_ret != ESP_OK) {
         app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_sd_fsync_log_file();// 把日志写入 SD 卡。
         ESP_LOGE(TAG, "------ 初始化 EVENT_LOOP：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 EVENT_LOOP：OK。");
@@ -225,6 +231,7 @@ void app_main(void) {
         netif_ret = esp_netif_init();
         if (netif_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 NETIF：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 NETIF：OK。");
@@ -237,6 +244,7 @@ void app_main(void) {
         modem_ret = app_modem_init();
         if (modem_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 4G MODEM：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 4G MODEM：OK。");
@@ -248,6 +256,7 @@ void app_main(void) {
         esp_err_t wifi_ret = app_wifi_ap_init(app_main_data.dev_addr);
         if (wifi_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 WIFI 热点：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 WIFI 热点：OK。");
@@ -259,6 +268,7 @@ void app_main(void) {
         esp_err_t ble_ret = app_ble_init();
         if (ble_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
@@ -271,6 +281,7 @@ void app_main(void) {
         sntp_ret = app_sntp_init();
         if (sntp_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 SNTP：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 SNTP：OK。");
@@ -283,6 +294,7 @@ void app_main(void) {
         mqtt_ret = app_mqtt_init();
         if (mqtt_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
@@ -294,6 +306,7 @@ void app_main(void) {
         esp_err_t ping_ret = app_ping_init();
         if (ping_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 PING：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 PING：OK。");
@@ -306,6 +319,7 @@ void app_main(void) {
         esp_err_t gnss_ret = app_gnss_init();
         if (gnss_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_sd_fsync_log_file();// 把日志写入 SD 卡。
             ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");

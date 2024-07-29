@@ -24,7 +24,14 @@ extern esp_mqtt_client_handle_t app_mqtt_5_client;
  * @return message_id of the publish message (for QoS 0 message_id will always
  *          be zero) on success. -1 on failure, -2 in case of full outbox.
  */
-int app_mqtt_publish(char* msg);
+int app_mqtt_publish_msg(char* msg);
+
+/**
+ * @brief MQTT 发日志给服务器。
+ * @param msg
+ * @return
+ */
+int app_mqtt_publish_log(char* log);
 
 /**
  * @brief 初始化函数。

@@ -42,6 +42,9 @@ Bluetooth: yes
 Host: NimBLE - BLE only
 
 9 加大缓存
-Instruction cache size = 32KB
-Data cache size = 64KB
-Data cache line size = 64bytes
+Instruction cache size: 32KB
+Data cache size: 64KB
+Data cache line size: 64bytes
+
+10 加大 STACK
+Default task stack size: 20480

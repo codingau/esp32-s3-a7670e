@@ -4,9 +4,13 @@
  * @author  nyx
  * @date    2024-07-08
  */
+#include <stdatomic.h>
 #include "esp_log.h"
 #include "esp_netif_sntp.h"
 #include "esp_sntp.h"
+
+#include "app_sd.h"
+#include "app_mqtt.h"
 
  /**
  * @brief NTP 服务器地址，不需要更新。经过测试，拔号成功后，从 DHCP 获到的地址也是这一个。
@@ -31,6 +35,8 @@ static void app_stnp_sync_cb(struct timeval* tv) {
 
     int millis = tv->tv_usec / 1000;// 获取毫秒部分。
     ESP_LOGI(TAG, "------ SNTP 同步事件，当前时间：%s.%03d", buffer, millis);
+
+    app_sd_bak_log_file();// 时间同步后，按时间备份日志文件。
 }
 
 /**

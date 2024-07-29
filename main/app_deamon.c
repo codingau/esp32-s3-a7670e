@@ -187,7 +187,7 @@ static void app_deamon_loop_task(void* param) {
  * @return
  */
 esp_err_t app_deamon_init(void) {
-    xTaskCreate(app_deamon_loop_task, "app_dm_loop_task", 2048, NULL, 1, NULL);// 主循环任务守护任务，优先级 1。
+    xTaskCreate(app_deamon_loop_task, "app_dm_loop_task", 3072, NULL, 1, NULL);// 主循环任务守护任务，优先级 1。
     xTaskCreate(app_deamon_network_task, "app_dm_network_task", 3072, NULL, 2, NULL);// 网络状态守护任务，优先级 2。
     return ESP_OK;
 }

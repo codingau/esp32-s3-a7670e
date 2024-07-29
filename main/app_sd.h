@@ -19,13 +19,23 @@ void app_sd_write_cache_file(char* dev_time, char* json);
 /**
  * @brief 推送缓存数据。
  */
-void app_sd_publish_cache(int cur_ts);
+void app_sd_publish_cache_file(int cur_ts);
 
 /**
 * @brief 确保写出日志内容到 SD 卡。
 *        fsync() 执行比较消耗性能，所以由外部调用，隔一段时间执行一次。
 */
 void app_sd_fsync_log_file(void);
+
+/**
+* @brief 推送日志备份文件。
+*/
+void app_sd_publish_bak_file(void);
+
+/**
+* @brief 备份日志文件。
+*/
+void app_sd_bak_log_file(void);
 
 /**
  * @brief 初始化函数。

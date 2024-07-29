@@ -48,10 +48,10 @@ static const char* TAG = "app_main";
 _Atomic uint32_t app_main_loop_last_ts = ATOMIC_VAR_INIT(0);
 
 /**
- * @brief 初始化推送数据。
+ * @brief APP 主任务运行期间的数据。
  */
-static app_main_data_t cur_data = {
-    .dev_addr = "00-00-00-00-00-00",        // 初始全部为 0。
+app_main_data_t app_main_data = {
+    .dev_addr = "00:00:00:00:00:00",        // 初始全部为 0。
     .dev_time = "19700101000000000",        // 初始化为起始时间。
     .log_ts = 0,                            // 初始为 0。
     .ble_ts = 0,                            // 初始为 0。
@@ -99,40 +99,40 @@ void app_main_loop_task(void) {
     uint32_t esp_log_ts = esp_log_timestamp();
     atomic_store(&app_main_loop_last_ts, esp_log_ts);
 
-    get_cur_utc_time(cur_data.dev_time, sizeof(cur_data.dev_time));// 设备时间。
-    cur_data.log_ts = esp_log_ts / 1000;// 系统启动以后的秒数。
-    cur_data.ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
-    app_gpio_get_string(cur_data.gpios, sizeof(cur_data.gpios));
+    get_cur_utc_time(app_main_data.dev_time, sizeof(app_main_data.dev_time));// 设备时间。
+    app_main_data.log_ts = esp_log_ts / 1000;// 系统启动以后的秒数。
+    app_main_data.ble_ts = atomic_load(&app_ble_disc_ts) / 1000;// 最后一次扫描到蓝牙开关的秒数。
+    app_gpio_get_string(app_main_data.gpios, sizeof(app_main_data.gpios));
 
     pthread_mutex_lock(&app_gnss_data.mutex);
-    get_gnss_utc_time(cur_data.gnss_time, sizeof(cur_data.gnss_time));// GNSS 时间。
-    cur_data.gnss_valid = app_gnss_data.valid;// 有效性。
-    cur_data.sat = app_gnss_data.sat;// 卫星数。
-    cur_data.alt = app_gnss_data.alt;// 高度，默认单位：M。
-    cur_data.lat = app_gnss_data.lat;// 纬度。
-    cur_data.lon = app_gnss_data.lon;// 经度。
-    cur_data.spd = app_gnss_data.spd;// 速度，默认单位：节。
-    cur_data.trk = app_gnss_data.trk;// 航向角度。
-    cur_data.mag = app_gnss_data.mag;// 磁偏角度。
+    get_gnss_utc_time(app_main_data.gnss_time, sizeof(app_main_data.gnss_time));// GNSS 时间。
+    app_main_data.gnss_valid = app_gnss_data.valid;// 有效性。
+    app_main_data.sat = app_gnss_data.sat;// 卫星数。
+    app_main_data.alt = app_gnss_data.alt;// 高度，默认单位：M。
+    app_main_data.lat = app_gnss_data.lat;// 纬度。
+    app_main_data.lon = app_gnss_data.lon;// 经度。
+    app_main_data.spd = app_gnss_data.spd;// 速度，默认单位：节。
+    app_main_data.trk = app_gnss_data.trk;// 航向角度。
+    app_main_data.mag = app_gnss_data.mag;// 磁偏角度。
     pthread_mutex_unlock(&app_gnss_data.mutex);
 
-    char* json = app_json_serialize(&cur_data);
+    char* json = app_json_serialize(&app_main_data);
 
     // 如果有 MQTT，则 MQTT 推送到服务器。
     if (app_mqtt_5_client != NULL) {
 
-        int pub_ret = app_mqtt_publish(json);
+        int pub_ret = app_mqtt_publish_msg(json);
         if (pub_ret >= 0) {// 推送成功，检查缓存。
-            app_sd_publish_cache(cur_data.log_ts);// 每间隔几分钟，检查缓存数据，并推送。推送 600 条数据，大约 2 秒。
+            app_sd_publish_cache_file(app_main_data.log_ts);// 每间隔几分钟，检查缓存数据，并推送。推送 600 条数据，大约 2 秒。
             app_led_set_value(0, 1, 0, 0, 1, 0);// 只闪绿色。
 
         } else {// 推送失败，写入缓存。
-            app_sd_write_cache_file(cur_data.dev_time, json);
+            app_sd_write_cache_file(app_main_data.dev_time, json);
             app_led_set_value(2, 0, 0, 0, 1, 0);// 红绿交替闪烁。
         }
 
     } else {// 没有 MQTT，直接写入缓存文件。
-        app_sd_write_cache_file(cur_data.dev_time, json);
+        app_sd_write_cache_file(app_main_data.dev_time, json);
         app_led_set_value(2, 1, 0, 2, 1, 0);// 只闪黄色。
     }
 
@@ -245,7 +245,7 @@ void app_main(void) {
 
     // 初始化 WIFI 热点。没有热点还能凑合着跑，热点是为了其它功能提供上网服务，不影响本系统运行。
     if (netif_ret == ESP_OK) {
-        esp_err_t wifi_ret = app_wifi_ap_init(cur_data.dev_addr);
+        esp_err_t wifi_ret = app_wifi_ap_init(app_main_data.dev_addr);
         if (wifi_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 WIFI 热点：失败！");
@@ -333,11 +333,11 @@ void app_main(void) {
         } else {
             vTaskDelay(task_period - task_duration);
         }
-        if (cur_data.gnss_valid == false) {// 如果数据无效，延迟 4 秒，5 秒一次。
+        if (app_main_data.gnss_valid == false) {// 如果数据无效，延迟 4 秒，5 秒一次。
             vTaskDelay(pdMS_TO_TICKS(4000));
-        } else if (cur_data.spd < 5) {// 停止未移动，速度小于 9.26 公里，5 秒一次。
+        } else if (app_main_data.spd < 5) {// 停止未移动，速度小于 9.26 公里，5 秒一次。
             vTaskDelay(pdMS_TO_TICKS(4000));
-        } else if (cur_data.spd < 30) {// 低速移动，速度小于 55.56 公里，2 秒一次。
+        } else if (app_main_data.spd < 30) {// 低速移动，速度小于 55.56 公里，2 秒一次。
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }

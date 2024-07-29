@@ -40,3 +40,8 @@ typedef struct {
     // 电压。
     int f;                  // 标记是否文件缓存数据。
 } app_main_data_t;
+
+/**
+ * @brief APP 主任务运行期间的数据。
+ */
+extern app_main_data_t app_main_data;

@@ -14,6 +14,7 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 
+#include "app_sd.h"
 #include "app_modem.h"
 #include "app_config.h"
 
@@ -33,16 +34,31 @@ _Atomic uint32_t app_mqtt_last_ts = ATOMIC_VAR_INIT(0);
 esp_mqtt_client_handle_t app_mqtt_5_client;
 
 /**
+ * @brief 是否推送日志备份文件。
+ */
+static int app_mqtt_pub_bak_count = 0;
+
+/**
  * @brief MQTT 发消息给服务器。
  * @param msg
  * @return message_id of the publish message (for QoS 0 message_id will always
  *          be zero) on success. -1 on failure, -2 in case of full outbox.
  */
-int app_mqtt_publish(char* msg) {
-    int ret = esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUBLISH_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
+int app_mqtt_publish_msg(char* msg) {
+    int ret = esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUB_MGS_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
     if (ret >= 0) {
         atomic_store(&app_mqtt_last_ts, esp_log_timestamp());
     }
+    return ret;
+}
+
+/**
+ * @brief MQTT 发日志给服务器。
+ * @param msg
+ * @return
+ */
+int app_mqtt_publish_log(char* log) {
+    int ret = esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUB_LOG_TOPIC, log, strlen(log), APP_MQTT_QOS, 0);
     return ret;
 }
 
@@ -58,12 +74,16 @@ static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, in
     switch ((esp_mqtt_event_id_t)event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "------ MQTT 事件：已连接。");
+            if (app_mqtt_pub_bak_count == 0) {
+                app_sd_publish_bak_file();
+                app_mqtt_pub_bak_count = 1;
+            }
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "------ MQTT 事件：断开连接！");
             break;
         case MQTT_EVENT_PUBLISHED:
-            // ESP_LOGI(TAG, "------ MQTT 事件：发布完成！");
+            ESP_LOGI(TAG, "------ MQTT 事件：发布完成！");
             break;
         case MQTT_EVENT_BEFORE_CONNECT:
             ESP_LOGI(TAG, "------ MQTT 事件：连接之前！");

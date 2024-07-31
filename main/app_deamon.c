@@ -36,9 +36,9 @@ static const char* TAG = "app_deamon";
 int app_status = 0;
 
 /**
- * @brief 网络状态。
+ * @brief PPP 停止时间戳。
  */
-static int app_deamon_ppp_status = 1;
+static int app_deamon_ppp_stop_ts = 0;
 
 /**
  * @brief 检测 SIM 卡状态。
@@ -67,17 +67,22 @@ static void app_demon_ckeck_sim_state(void) {
  */
 static void app_deamon_check_signal_and_restart_ppp(void) {
 
-    if (app_deamon_ppp_status == 1) {// 如果上网状态。
+    if (app_deamon_ppp_stop_ts == 0) {// 如果上网状态。
         esp_err_t stop_ret = modem_board_ppp_stop(30000);
         if (stop_ret == ESP_OK) {
-            app_deamon_ppp_status = 0;
-            ESP_LOGI(TAG, "------ 停止 4G 上网：成功。");
+            app_deamon_ppp_stop_ts = esp_log_timestamp();
+            ESP_LOGW(TAG, "------ 停止 4G 上网：成功。");
 
         } else {
             ESP_LOGE(TAG, "------ 停止 4G 上网：失败！稍后重试：modem_board_ppp_stop()");
         }
 
     } else {
+
+        if (esp_log_timestamp() - app_deamon_ppp_stop_ts > 600000) {// 断网 10 分钟，直接重启。
+            ESP_LOGW(TAG, "------ 停止 4G 上网，超过 10 分钟，重启开发板。立即执行：esp_restart()");
+            esp_restart();
+        }
 
         app_demon_ckeck_sim_state();// 先检测 SIM 状态。
 
@@ -87,15 +92,14 @@ static void app_deamon_check_signal_and_restart_ppp(void) {
         if (quality_ret == ESP_OK) {
             ESP_LOGI(TAG, "------ AT+CSQ 命令，返回：成功。返回值：rssi = %d, ber = %d", rssi, ber);
             if (rssi == 99 || rssi < 15) {
-                ESP_LOGE(TAG, "------ 4G 信号未知，或者信号弱，保持断网状态。");
+                ESP_LOGW(TAG, "------ 4G 信号未知，或者信号弱，保持断网状态。");
             } else {
-                ESP_LOGI(TAG, "------ 4G 信号强度正常，尝试 PPP 拔号。");
-                modem_board_ppp_start(30000);
-                app_deamon_ppp_status = 1;
-                vTaskDelay(pdMS_TO_TICKS(10000));// 增加 10 秒，等待 MQTT 自动重连的时间。
+                ESP_LOGW(TAG, "------ 4G 信号强度正常，重启开发板。立即执行：esp_restart()");
+                esp_restart();
             }
+
         } else {
-            ESP_LOGI(TAG, "------ AT+CSQ 命令，返回：失败！");
+            ESP_LOGE(TAG, "------ AT+CSQ 命令，返回：失败！");
         }
         vTaskDelay(pdMS_TO_TICKS(10000));// 等待 10 秒，降低检测频率。
     }
@@ -117,7 +121,7 @@ static void app_deamon_network_task(void* param) {
             uint32_t mqtt_last_ts = atomic_load(&app_mqtt_last_ts);
             if (cur_ts - mqtt_last_ts > 10000) {// 大于 10 秒。
 
-                if (app_deamon_ppp_status == 1) {
+                if (app_deamon_ppp_stop_ts == 0) {
                     esp_err_t ping_start_ret = app_ping_start();
                     if (ping_start_ret != ESP_OK) {
                         ESP_LOGE(TAG, "------ PING 函数执行结果：失败！立即执行：esp_restart()");
@@ -143,11 +147,6 @@ static void app_deamon_network_task(void* param) {
 
                 } else {// 断网状态，直接检测信号。
                     app_deamon_check_signal_and_restart_ppp();
-                }
-
-            } else {// 如果 MQTT 正常，PPP 状态设置为 1。
-                if (app_deamon_ppp_status == 0) {
-                    app_deamon_ppp_status = 1;
                 }
             }
         }
@@ -187,7 +186,7 @@ static void app_deamon_loop_task(void* param) {
  * @return
  */
 esp_err_t app_deamon_init(void) {
-    xTaskCreate(app_deamon_loop_task, "app_dm_loop_task", 3072, NULL, 1, NULL);// 主循环任务守护任务，优先级 1。
+    xTaskCreate(app_deamon_loop_task, "app_dm_loop_task", 2048, NULL, 1, NULL);// 主循环任务守护任务，优先级 1。
     xTaskCreate(app_deamon_network_task, "app_dm_network_task", 3072, NULL, 2, NULL);// 网络状态守护任务，优先级 2。
     return ESP_OK;
 }

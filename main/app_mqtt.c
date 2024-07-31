@@ -24,6 +24,11 @@
 static const char* TAG = "app_mqtt";
 
 /**
+ * @brief MQTT 初始化状态。
+ */
+static int app_mqtt_init_status = 0;
+
+/**
  * @brief 最近一次发送 MQTT 的时间戳。
  */
 _Atomic uint32_t app_mqtt_last_ts = ATOMIC_VAR_INIT(0);
@@ -45,6 +50,10 @@ static int app_mqtt_pub_bak_count = 0;
  *          be zero) on success. -1 on failure, -2 in case of full outbox.
  */
 int app_mqtt_publish_msg(char* msg) {
+    if (app_mqtt_init_status == 0) {
+        ESP_LOGE(TAG, "------ MQTT 初始化失败，MQTT 客户端状态：不可用！");
+        return -1;
+    }
     int ret = esp_mqtt_client_publish(app_mqtt_5_client, APP_MQTT_PUB_MGS_TOPIC, msg, strlen(msg), APP_MQTT_QOS, 0);
     if (ret >= 0) {
         atomic_store(&app_mqtt_last_ts, esp_log_timestamp());
@@ -59,6 +68,10 @@ int app_mqtt_publish_msg(char* msg) {
  * @return
  */
 int app_mqtt_publish_log(char* topic, char* log) {
+    if (app_mqtt_init_status == 0) {
+        ESP_LOGE(TAG, "------ MQTT 初始化失败，MQTT 客户端状态：不可用！");
+        return -1;
+    }
     int ret = esp_mqtt_client_publish(app_mqtt_5_client, topic, log, strlen(log), APP_MQTT_QOS, 0);
     return ret;
 }
@@ -76,7 +89,8 @@ static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, in
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "------ MQTT 事件：已连接。");
             if (app_mqtt_pub_bak_count == 0) {
-                app_sd_publish_bak_file();
+                app_sd_pub_log_bak_file();
+                app_sd_pub_cache_bak_file();
                 app_mqtt_pub_bak_count = 1;
             }
             break;
@@ -132,6 +146,8 @@ esp_err_t app_mqtt_init(void) {
     app_mqtt_5_client = esp_mqtt_client_init(&mqtt5_cfg);
     esp_mqtt_client_register_event(app_mqtt_5_client, ESP_EVENT_ANY_ID, app_mqtt_event_handler, NULL);
     esp_err_t mqtt_ret = esp_mqtt_client_start(app_mqtt_5_client);
-
+    if (mqtt_ret == ESP_OK) {
+        app_mqtt_init_status = 1;
+    }
     return mqtt_ret;
 }

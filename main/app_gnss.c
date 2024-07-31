@@ -261,6 +261,6 @@ void app_gnss_send_command(void) {
  */
 esp_err_t app_gnss_init(void) {
     app_gnss_send_command();
-    xTaskCreate(app_gnss_read_task, "app_gnss_read_task", 3072, NULL, 8, NULL);// 启动接收任务。
+    xTaskCreate(app_gnss_read_task, "app_gnss_read_task", 2048, NULL, 8, NULL);// 启动接收任务。
     return ESP_OK;
 }

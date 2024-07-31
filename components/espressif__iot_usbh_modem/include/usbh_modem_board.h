@@ -137,9 +137,9 @@ extern "C"
      */
     esp_err_t modem_board_ppp_stop(uint32_t timeout_ms);
 
-    bool modem_board_dce_is_null(void);
+    bool modem_board_dce_is_null(void);//add by nyx 2024-07-30
 
-    void modem_board_print_info(void);
+    void modem_board_print_info(void);//add by nyx 2024-07-30
 
 #ifdef __cplusplus
 }

@@ -8,4 +8,4 @@
 
 #include "app_main.h"
 
-char* app_json_serialize(const app_main_data_t* data);
+char* app_json_serialize(char* buffer, size_t buffer_size, const app_main_data_t* data);

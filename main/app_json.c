@@ -6,32 +6,27 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "cJSON.h"
 
 #include "app_main.h"
 
-char* app_json_serialize(const app_main_data_t* data) {
+void app_json_serialize(char* buffer, size_t buffer_size, const app_main_data_t* data) {
 
-    cJSON* root = cJSON_CreateObject();
+    char fmt[] = "{\"devAddr\":\"%s\",\"devTime\":\"%s\",\"logTs\":%d,\"bleTs\":%d,\"gpios\":\"%s\",\"gnssTime\":\"%s\",\"gnssValid\":%d,\"sat\":%d,\"alt\":%f,\"lat\":%f,\"lon\":%f,\"spd\":%f,\"trk\":%f,\"mag\":%f,\"f\":0}";
 
-    cJSON_AddStringToObject(root, "devAddr", data->dev_addr);
-    cJSON_AddStringToObject(root, "devTime", data->dev_time);
-    cJSON_AddNumberToObject(root, "logTs", data->log_ts);
-    cJSON_AddNumberToObject(root, "bleTs", data->ble_ts);
-    cJSON_AddStringToObject(root, "gpios", data->gpios);
-    cJSON_AddStringToObject(root, "gnssTime", data->gnss_time);
-    cJSON_AddBoolToObject(root, "gnssValid", data->gnss_valid);
-    cJSON_AddNumberToObject(root, "sat", data->sat);
-    cJSON_AddNumberToObject(root, "alt", data->alt);
-    cJSON_AddNumberToObject(root, "lat", data->lat);
-    cJSON_AddNumberToObject(root, "lon", data->lon);
-    cJSON_AddNumberToObject(root, "spd", data->spd);
-    cJSON_AddNumberToObject(root, "trk", data->trk);
-    cJSON_AddNumberToObject(root, "mag", data->mag);
-    cJSON_AddNumberToObject(root, "f", data->f);
-
-    char* json_str = cJSON_PrintUnformatted(root);// 不按字段换行。
-    cJSON_Delete(root);
-    // cJSON_free(json_str);// 不要在这里释放！
-    return json_str;
+    snprintf(buffer, buffer_size, fmt,
+        data->dev_addr,
+        data->dev_time,
+        data->log_ts,
+        data->ble_ts,
+        data->gpios,
+        data->gnss_time,
+        data->gnss_valid,
+        data->sat,
+        data->alt,
+        data->lat,
+        data->lon,
+        data->spd,
+        data->trk,
+        data->mag
+    );
 }

@@ -23,6 +23,11 @@
 static const char* TAG = "app_sntp";
 
 /**
+* @brief 备份次数。
+*/
+static int app_sd_bak_count = 0;
+
+/**
  * @brief 时间更新回调函数。
  * @param tv
  */
@@ -36,7 +41,11 @@ static void app_stnp_sync_cb(struct timeval* tv) {
     int millis = tv->tv_usec / 1000;// 获取毫秒部分。
     ESP_LOGI(TAG, "------ SNTP 同步事件，当前时间：%s.%03d", buffer, millis);
 
-    app_sd_bak_log_file();// 时间同步后，按时间备份日志文件。
+    if (app_sd_bak_count == 0) {
+        app_sd_bak_log_file();// 时间同步后，按时间备份日志文件。
+        app_sd_bak_cache_file();
+        app_sd_bak_count = 1;
+    }
 }
 
 /**

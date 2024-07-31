@@ -72,7 +72,6 @@ static void app_deamon_check_signal_and_restart_ppp(void) {
         if (stop_ret == ESP_OK) {
             app_deamon_ppp_stop_ts = esp_log_timestamp();
             ESP_LOGW(TAG, "------ 停止 4G 上网：成功。");
-
         } else {
             ESP_LOGE(TAG, "------ 停止 4G 上网：失败！稍后重试：modem_board_ppp_stop()");
         }

@@ -1,5 +1,5 @@
 build/
 managed_components/
-main/app_config.h
+# main/app_config.h
 dependencies.lock
 sdkconfig.old

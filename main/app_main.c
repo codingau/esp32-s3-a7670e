@@ -127,12 +127,12 @@ void app_main_loop_task(void) {
             app_led_set_value(0, 1, 0, 0, 1, 0);// 只闪绿色。
 
         } else {// 推送失败，写入缓存。
-            app_sd_write_cache_file(app_main_data.dev_time, json);
+            app_sd_write_cache_file(json);
             app_led_set_value(2, 0, 0, 0, 1, 0);// 红绿交替闪烁。
         }
 
     } else {// 没有 MQTT，直接写入缓存文件。
-        app_sd_write_cache_file(app_main_data.dev_time, json);
+        app_sd_write_cache_file(json);
         app_led_set_value(2, 1, 0, 2, 1, 0);// 只闪黄色。
     }
 
@@ -299,7 +299,7 @@ void app_main(void) {
     // 初始化 MQTT，失败不终止运行。可以写数据到本地。
     esp_err_t mqtt_ret = ESP_FAIL;
     if (modem_ret == ESP_OK) {
-        mqtt_ret = app_mqtt_init();
+        mqtt_ret = app_mqtt_init(app_main_data.dev_addr, strlen(app_main_data.dev_addr));
         if (mqtt_ret != ESP_OK) {
             app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");

@@ -93,13 +93,13 @@ static uint32_t app_sd_log_file_write_line = 0;
 /**
 * @brief 输出数据到缓存文件。
 */
-void app_sd_write_cache_file(char* dev_time, char* json) {
+void app_sd_write_cache_file(char* json) {
     if (app_sd_init_status == 0) {
         ESP_LOGE(TAG, "------ SD 卡初始化失败，SD 卡状态：不可用！");
         return;
     }
     if (app_sd_cache_file == NULL) {
-        ESP_LOGE(TAG, "------ SD 卡写入缓存文件：失败！缓存文件不存在，设备时间：%s", dev_time);
+        ESP_LOGE(TAG, "------ SD 卡写入缓存文件：失败！app_sd_cache_file == NULL");
         return;
     }
     size_t len = strlen(json);

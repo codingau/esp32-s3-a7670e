@@ -36,6 +36,8 @@ int app_mqtt_publish_log(char* topic, char* log);
 
 /**
  * @brief 初始化函数。
+ * @param will_msg
+ * @param msg_len
  * @return
  */
-esp_err_t app_mqtt_init(void);
+esp_err_t app_mqtt_init(char* will_msg, size_t will_msg_len);

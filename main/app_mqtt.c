@@ -111,10 +111,11 @@ static void app_mqtt_event_handler(void* handler_args, esp_event_base_t base, in
 
 /**
  * @brief 初始化函数。
- * @param
+ * @param will_msg
+ * @param msg_len
  * @return
  */
-esp_err_t app_mqtt_init(void) {
+esp_err_t app_mqtt_init(char* will_msg, size_t will_msg_len) {
 
     for (int i = 10; i > 0; i--) {
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -123,8 +124,6 @@ esp_err_t app_mqtt_init(void) {
             break;
         }
     }
-
-    char will_msg[] = APP_MQTT_WILL_MSG;
 
     esp_mqtt_client_config_t mqtt5_cfg = {
         .session.protocol_ver = MQTT_PROTOCOL_V_5,
@@ -138,7 +137,7 @@ esp_err_t app_mqtt_init(void) {
 
         .session.last_will.topic = APP_MQTT_WILL_TOPIC,
         .session.last_will.msg = will_msg,
-        .session.last_will.msg_len = strlen(will_msg),
+        .session.last_will.msg_len = will_msg_len,
         .session.last_will.qos = APP_MQTT_QOS,
         .session.last_will.retain = true,
     };

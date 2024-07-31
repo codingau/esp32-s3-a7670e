@@ -9,7 +9,7 @@
  /**
   * @brief 写入缓存文件。
   */
-void app_sd_write_cache_file(char* dev_time, char* json);
+void app_sd_write_cache_file(char* json);
 
 /**
 * @brief 确保写出日志内容到 SD 卡。

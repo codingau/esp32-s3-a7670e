@@ -43,12 +43,17 @@
  /**
  * @brief 日志文件名。
  */
-#define APP_SD_LOG_FILE_NAME        APP_SD_LOG_DIR"/LOG.TXT"
+#define APP_SD_LOG_TXT              APP_SD_LOG_DIR"/LOG.TXT"
 
  /**
- * @brief 日志备份文件名。
+ * @brief 日志备份文件名，稍后按时间复制为文件。
  */
-#define APP_SD_LOG_BAK_NAME         APP_SD_LOG_DIR"/LOG.BAK"
+#define APP_SD_LOG_FILE_TXT         APP_SD_LOG_DIR"/FILE.TXT"
+
+ /**
+ * @brief 日志备份文件名，稍后推送给 MQTT 服务器。
+ */
+#define APP_SD_LOG_MQTT_TXT         APP_SD_LOG_DIR"/MQTT.TXT"
 
  /**
  * @brief 缓存目录。
@@ -58,12 +63,17 @@
  /**
  * @brief 缓存文件名。
  */
-#define APP_SD_CACHE_FILE_NAME      APP_SD_CACHE_DIR"/CACHE.TXT"
+#define APP_SD_CACHE_TXT            APP_SD_CACHE_DIR"/CACHE.TXT"
 
  /**
- * @brief 缓存备份文件名。
+ * @brief 缓存备份文件名，稍后按时间复制为文件。
  */
-#define APP_SD_CACHE_BAK_NAME      APP_SD_CACHE_DIR"/CACHE.BAK"
+#define APP_SD_CACHE_FILE_TXT       APP_SD_CACHE_DIR"/FILE.TXT"
+
+ /**
+ * @brief 缓存备份文件名，稍后推送给 MQTT 服务器。
+ */
+#define APP_SD_CACHE_MQTT_TXT       APP_SD_CACHE_DIR"/MQTT.TXT"
 
  /**
  * @brief 日志 TAG。
@@ -86,9 +96,14 @@ static FILE* app_sd_log_file = NULL;
 static FILE* app_sd_cache_file = NULL;
 
 /**
-* @brief 日志文件写入行数。
+* @brief 日志文件写入计数。
 */
-static uint32_t app_sd_log_file_write_line = 0;
+static uint32_t app_sd_log_file_write_count = 0;
+
+/**
+* @brief 缓存 MQTT 已推送行数。
+*/
+static int app_sd_cache_mqtt_pub_line = 0;
 
 /**
 * @brief 输出数据到缓存文件。
@@ -121,7 +136,7 @@ void app_sd_fsync_log_file(void) {
         ESP_LOGE(TAG, "------ SD 卡初始化失败，SD 卡状态：不可用！");
         return;
     }
-    if (app_sd_log_file != NULL && app_sd_log_file_write_line > 0) {
+    if (app_sd_log_file != NULL && app_sd_log_file_write_count > 0) {
         fsync(fileno(app_sd_log_file));
     }
 }
@@ -135,7 +150,7 @@ static int app_sd_write_log_file(const char* fmt, va_list args) {
     if (app_sd_log_file != NULL) {
         ret_file = vfprintf(app_sd_log_file, fmt, args);// 再写文件。
         fflush(app_sd_log_file);
-        app_sd_log_file_write_line++;
+        app_sd_log_file_write_count++;
     }
     return ret_uart < 0 ? ret_uart : ret_file;
 }
@@ -155,10 +170,12 @@ static int app_sd_count_bak_files(const char* path) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
-        if (strcmp(entry->d_name, APP_SD_LOG_FILE_NAME) == 0// 排除文件名。
-            || strcmp(entry->d_name, APP_SD_LOG_BAK_NAME) == 0
-            || strcmp(entry->d_name, APP_SD_CACHE_FILE_NAME) == 0
-            || strcmp(entry->d_name, APP_SD_CACHE_BAK_NAME) == 0
+        if (strcmp(entry->d_name, APP_SD_LOG_TXT) == 0 || // 排除文件名。
+            strcmp(entry->d_name, APP_SD_LOG_FILE_TXT) == 0 ||
+            strcmp(entry->d_name, APP_SD_LOG_MQTT_TXT) == 0 ||
+            strcmp(entry->d_name, APP_SD_CACHE_TXT) == 0 ||
+            strcmp(entry->d_name, APP_SD_CACHE_FILE_TXT) == 0 ||
+            strcmp(entry->d_name, APP_SD_CACHE_MQTT_TXT) == 0
             ) {
             continue;
         }
@@ -184,10 +201,12 @@ static void app_sd_delete_bak_files(const char* path) {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {// 忽略 "." 和 ".."
                 continue;
             }
-            if (strcmp(entry->d_name, APP_SD_LOG_FILE_NAME) == 0// 排除文件名。
-                || strcmp(entry->d_name, APP_SD_LOG_BAK_NAME) == 0
-                || strcmp(entry->d_name, APP_SD_CACHE_FILE_NAME) == 0
-                || strcmp(entry->d_name, APP_SD_CACHE_BAK_NAME) == 0
+            if (strcmp(entry->d_name, APP_SD_LOG_TXT) == 0 ||// 排除文件名。
+                strcmp(entry->d_name, APP_SD_LOG_FILE_TXT) == 0 ||
+                strcmp(entry->d_name, APP_SD_LOG_MQTT_TXT) == 0 ||
+                strcmp(entry->d_name, APP_SD_CACHE_TXT) == 0 ||
+                strcmp(entry->d_name, APP_SD_CACHE_FILE_TXT) == 0 ||
+                strcmp(entry->d_name, APP_SD_CACHE_MQTT_TXT) == 0
                 ) {
                 continue;
             }
@@ -202,7 +221,7 @@ static void app_sd_delete_bak_files(const char* path) {
 }
 
 /**
- * @brief 复制文件。
+ * @brief 复制文件，追加模式。
  * @param source
  * @param destination
  */
@@ -212,7 +231,7 @@ static void app_sd_copy_file(const char* source, const char* destination) {
         ESP_LOGE(TAG, "------ SD 卡复制文件，无法打开源文件！文件名：%s", source);
         return;
     }
-    FILE* dest = fopen(destination, "wb");
+    FILE* dest = fopen(destination, "a");// 追加模式。
     if (dest == NULL) {
         ESP_LOGE(TAG, "------ SD 卡复制文件，无法打开目标文件！文件名：%s", destination);
         fclose(src);
@@ -236,8 +255,8 @@ void app_sd_bak_log_file(void) {
         return;
     }
     ESP_LOGI(TAG, "------ SD 卡备份日志文件：开始。");
-    if (access(APP_SD_LOG_BAK_NAME, F_OK) == -1) {
-        ESP_LOGE(TAG, "------ SD 卡备份日志文件：失败。文件不存在，文件名：%s", APP_SD_LOG_BAK_NAME);
+    if (access(APP_SD_LOG_FILE_TXT, F_OK) == -1) {
+        ESP_LOGE(TAG, "------ SD 卡备份日志文件：失败。文件不存在，文件名：%s", APP_SD_LOG_FILE_TXT);
         return;
     }
     time_t now;
@@ -246,8 +265,9 @@ void app_sd_bak_log_file(void) {
     gmtime_r(&now, &timeinfo); // 将时间转换为 UTC 时间。
     char new_bak_name[64];
     strftime(new_bak_name, sizeof(new_bak_name), APP_SD_LOG_DIR"/%m%d%H%M.TXT", &timeinfo);// 月日时分.TXT
-    app_sd_copy_file(APP_SD_LOG_BAK_NAME, new_bak_name);
+    app_sd_copy_file(APP_SD_LOG_FILE_TXT, new_bak_name);
     ESP_LOGI(TAG, "------ SD 卡备份日志文件：完成。文件名：%s", new_bak_name);
+    remove(APP_SD_LOG_FILE_TXT);// 文件备份完，删除 FILE.TXT
 }
 
 /**
@@ -259,8 +279,8 @@ void app_sd_bak_cache_file(void) {
         return;
     }
     ESP_LOGI(TAG, "------ SD 卡备份缓存文件：开始。");
-    if (access(APP_SD_CACHE_BAK_NAME, F_OK) == -1) {
-        ESP_LOGE(TAG, "------ SD 卡备份缓存文件：失败。文件不存在，文件名：%s", APP_SD_CACHE_BAK_NAME);
+    if (access(APP_SD_CACHE_FILE_TXT, F_OK) == -1) {
+        ESP_LOGE(TAG, "------ SD 卡备份缓存文件：失败。文件不存在，文件名：%s", APP_SD_CACHE_FILE_TXT);
         return;
     }
     time_t now;
@@ -269,8 +289,9 @@ void app_sd_bak_cache_file(void) {
     gmtime_r(&now, &timeinfo); // 将时间转换为 UTC 时间。
     char new_bak_name[64];
     strftime(new_bak_name, sizeof(new_bak_name), APP_SD_CACHE_DIR"/%m%d%H%M.TXT", &timeinfo);// 月日时分.TXT
-    app_sd_copy_file(APP_SD_CACHE_BAK_NAME, new_bak_name);
+    app_sd_copy_file(APP_SD_CACHE_FILE_TXT, new_bak_name);
     ESP_LOGI(TAG, "------ SD 卡备份缓存文件：完成。文件名：%s", new_bak_name);
+    remove(APP_SD_CACHE_FILE_TXT);// 文件备份完，删除 FILE.TXT
 }
 
 
@@ -282,14 +303,14 @@ void app_sd_pub_log_bak_file(void) {
         ESP_LOGE(TAG, "------ SD 卡初始化失败，SD 卡状态：不可用！");
         return;
     }
-    ESP_LOGI(TAG, "------ SD 卡推送日志备份文件：开始。文件名：%s", APP_SD_LOG_BAK_NAME);
-    if (access(APP_SD_LOG_BAK_NAME, F_OK) == -1) {// 检查 LOG.BAK 是否存在，存在则发送给服务器。
-        ESP_LOGE(TAG, "------ SD 卡推送日志备份文件：失败。文件不存在，文件名：%s", APP_SD_LOG_BAK_NAME);
+    ESP_LOGI(TAG, "------ SD 卡推送日志备份文件：开始。文件名：%s", APP_SD_LOG_MQTT_TXT);
+    if (access(APP_SD_LOG_MQTT_TXT, F_OK) == -1) {// 检查 LOG.BAK 是否存在，存在则发送给服务器。
+        ESP_LOGE(TAG, "------ SD 卡推送日志备份文件：失败。文件不存在，文件名：%s", APP_SD_LOG_MQTT_TXT);
         return;
     }
-    FILE* file = fopen(APP_SD_LOG_BAK_NAME, "r");
+    FILE* file = fopen(APP_SD_LOG_MQTT_TXT, "r");
     if (file == NULL) {
-        ESP_LOGE(TAG, "------ SD 卡推送日志备份文件：失败。打开文件失败，文件名：%s", APP_SD_LOG_BAK_NAME);
+        ESP_LOGE(TAG, "------ SD 卡推送日志备份文件：失败。打开文件失败，文件名：%s", APP_SD_LOG_MQTT_TXT);
         return;
     }
     int line_count = 0;
@@ -303,14 +324,15 @@ void app_sd_pub_log_bak_file(void) {
         snprintf(topic, sizeof(topic), "%s/%s", APP_MQTT_PUB_LOG_TOPIC, app_main_data.dev_addr);
         int pub_ret = app_mqtt_publish_log(topic, line);
         if (pub_ret < 0) {// 只要有一次发送失败，就跳出循环，不再继续执行。
-            ESP_LOGW(TAG, "------ SD 卡推送日志备份文件：中断。文件名：%s，推送行数：%d", APP_SD_LOG_BAK_NAME, line_count);
+            ESP_LOGW(TAG, "------ SD 卡推送日志备份文件：中断。文件名：%s，推送行数：%d", APP_SD_LOG_MQTT_TXT, line_count);
             break;
         }
         line_count++;
 
     }
-    fclose(file);// 推送结束后，不要删除 LOG.BAK 文件，因为 SNTP 触发本地备份，可能会晚于 MQTT 推送备份。
-    ESP_LOGI(TAG, "------ SD 卡推送日志备份文件：完成。文件名：%s，推送行数：%d", APP_SD_LOG_BAK_NAME, line_count);
+    fclose(file);
+    remove(APP_SD_LOG_MQTT_TXT);// 推送完成，删除 MQTT.TXT
+    ESP_LOGI(TAG, "------ SD 卡推送日志备份文件：完成。文件名：%s，推送行数：%d", APP_SD_LOG_MQTT_TXT, line_count);
 }
 
 /**
@@ -321,18 +343,22 @@ void app_sd_pub_cache_bak_file(void) {
         ESP_LOGE(TAG, "------ SD 卡初始化失败，SD 卡状态：不可用！");
         return;
     }
-    ESP_LOGI(TAG, "------ SD 卡推送缓存备份文件：开始。文件名：%s", APP_SD_CACHE_BAK_NAME);
-    if (access(APP_SD_CACHE_BAK_NAME, F_OK) == -1) {// 检查 LOG.BAK 是否存在，存在则发送给服务器。
-        ESP_LOGE(TAG, "------ SD 卡推送缓存备份文件：失败。文件不存在，文件名：%s", APP_SD_CACHE_BAK_NAME);
+    ESP_LOGI(TAG, "------ SD 卡推送缓存备份文件：开始。文件名：%s", APP_SD_CACHE_MQTT_TXT);
+    if (access(APP_SD_CACHE_MQTT_TXT, F_OK) == -1) {// 检查 LOG.BAK 是否存在，存在则发送给服务器。
+        ESP_LOGE(TAG, "------ SD 卡推送缓存备份文件：失败。文件不存在，文件名：%s", APP_SD_CACHE_MQTT_TXT);
         return;
     }
-    FILE* file = fopen(APP_SD_CACHE_BAK_NAME, "r");
+    FILE* file = fopen(APP_SD_CACHE_MQTT_TXT, "r");
     if (file == NULL) {
-        ESP_LOGE(TAG, "------ SD 卡推送缓存备份文件：失败。打开文件失败，文件名：%s", APP_SD_CACHE_BAK_NAME);
+        ESP_LOGE(TAG, "------ SD 卡推送缓存备份文件：失败。打开文件失败，文件名：%s", APP_SD_CACHE_MQTT_TXT);
         return;
     }
-    int line_count = 0;
+
     char line[1024];
+    ESP_LOGI(TAG, "------ SD 卡推送缓存文件：开始。文件名：%s，跳过行数：%d", APP_SD_CACHE_MQTT_TXT, app_sd_cache_mqtt_pub_line);
+    for (int i = 0; i < app_sd_cache_mqtt_pub_line; ++i) {
+        fgets(line, sizeof(line), file);// 跳过 N 行。
+    }
     while (fgets(line, sizeof(line), file) != NULL) {// 逐行读取文件内容。
         size_t len = strlen(line);// 去除行尾的换行符。
         if (len > 0 && line[len - 1] == '\n') {
@@ -340,31 +366,34 @@ void app_sd_pub_cache_bak_file(void) {
         }
         int pub_ret = app_mqtt_publish_msg(line);
         if (pub_ret < 0) {// 只要有一次发送失败，就跳出循环，不再继续执行。
-            ESP_LOGW(TAG, "------ SD 卡推送缓存备份文件：中断。稍后自动重试。文件名：%s，推送行数：%d", APP_SD_CACHE_FILE_NAME, line_count);
-            break;
+            ESP_LOGW(TAG, "------ SD 卡推送缓存备份文件：中断。下次启动时重试。文件名：%s，推送行数：%d", APP_SD_CACHE_MQTT_TXT, app_sd_cache_mqtt_pub_line);
+            return;
         }
-        line_count++;// 记录已发条数。
+        app_sd_cache_mqtt_pub_line++;// 记录已发条数。
     }
     fclose(file);// 关闭文件。
-    ESP_LOGI(TAG, "------ SD 卡推送缓存备份文件：完成。文件名：%s，推送行数：%d", APP_SD_CACHE_FILE_NAME, line_count);
+    remove(APP_SD_CACHE_MQTT_TXT);// 推送完成，删除 MQTT.TXT
+    app_sd_cache_mqtt_pub_line = 0;
+    ESP_LOGI(TAG, "------ SD 卡推送缓存备份文件：完成。文件名：%s，推送行数：%d", APP_SD_CACHE_MQTT_TXT, app_sd_cache_mqtt_pub_line);
 }
 
 /**
 * @brief 创建日志文件。
 */
 static void app_sd_create_log_file(void) {
-    if (access(APP_SD_LOG_FILE_NAME, F_OK) != -1) {// 检查日志文件是否存在，存在则重命名。
-        if (access(APP_SD_LOG_BAK_NAME, F_OK) != -1) {// 检查备份文件是否存在，存在则删除。
-            remove(APP_SD_LOG_BAK_NAME);
+    if (access(APP_SD_LOG_TXT, F_OK) != -1) {// 检查文件是否存在。
+        app_sd_copy_file(APP_SD_LOG_TXT, APP_SD_LOG_MQTT_TXT);// 先复制一份到 MQTT.TXT
+        if (access(APP_SD_LOG_FILE_TXT, F_OK) != -1) {// 检查 FILE.TXT 文件是否存在，存在则删除。
+            remove(APP_SD_LOG_FILE_TXT);
         }
-        rename(APP_SD_LOG_FILE_NAME, APP_SD_LOG_BAK_NAME);
+        rename(APP_SD_LOG_TXT, APP_SD_LOG_FILE_TXT);// 再重命名为 FILE.TXT
     }
-    app_sd_log_file = fopen(APP_SD_LOG_FILE_NAME, "a");// 创建一个新文件。
+    app_sd_log_file = fopen(APP_SD_LOG_TXT, "a");
     if (app_sd_log_file == NULL) {
-        ESP_LOGE(TAG, "------ SD 卡创建日志文件：失败！文件名：%s", APP_SD_LOG_FILE_NAME);
+        ESP_LOGE(TAG, "------ SD 卡创建日志文件：失败！文件名：%s", APP_SD_LOG_TXT);
     } else {
-        ESP_LOGI(TAG, "------ SD 卡创建日志文件：完成。文件名：%s", APP_SD_LOG_FILE_NAME);
-        esp_log_set_vprintf(app_sd_write_log_file);
+        ESP_LOGI(TAG, "------ SD 卡创建日志文件：完成。文件名：%s", APP_SD_LOG_TXT);
+        esp_log_set_vprintf(app_sd_write_log_file);// 重定向输出 LOG 到文件。
     }
 }
 
@@ -372,17 +401,18 @@ static void app_sd_create_log_file(void) {
 * @brief 创建缓存文件。
 */
 static void app_sd_create_cache_file(void) {
-    if (access(APP_SD_CACHE_FILE_NAME, F_OK) != -1) {// 检查日志文件是否存在，存在则重命名。
-        if (access(APP_SD_CACHE_BAK_NAME, F_OK) != -1) {// 检查备份文件是否存在，存在则删除。
-            remove(APP_SD_CACHE_BAK_NAME);
+    if (access(APP_SD_CACHE_TXT, F_OK) != -1) {// 检查文件是否存在。
+        app_sd_copy_file(APP_SD_CACHE_TXT, APP_SD_CACHE_MQTT_TXT);// 先复制一份到 MQTT.TXT
+        if (access(APP_SD_CACHE_FILE_TXT, F_OK) != -1) {// 检查 FILE.TXT 文件是否存在，存在则删除。
+            remove(APP_SD_CACHE_FILE_TXT);
         }
-        rename(APP_SD_CACHE_FILE_NAME, APP_SD_CACHE_BAK_NAME);
+        rename(APP_SD_CACHE_TXT, APP_SD_CACHE_FILE_TXT);// 再重命名为 FILE.TXT
     }
-    app_sd_cache_file = fopen(APP_SD_CACHE_FILE_NAME, "a");// 创建一个新文件。
+    app_sd_cache_file = fopen(APP_SD_CACHE_TXT, "a");// 创建一个新文件。
     if (app_sd_cache_file == NULL) {
-        ESP_LOGE(TAG, "------ SD 卡创建缓存文件：失败！文件名：%s", APP_SD_CACHE_FILE_NAME);
+        ESP_LOGE(TAG, "------ SD 卡创建缓存文件：失败！文件名：%s", APP_SD_CACHE_TXT);
     } else {
-        ESP_LOGI(TAG, "------ SD 卡创建缓存文件：完成。文件名：%s", APP_SD_CACHE_FILE_NAME);
+        ESP_LOGI(TAG, "------ SD 卡创建缓存文件：完成。文件名：%s", APP_SD_CACHE_TXT);
     }
 }
 

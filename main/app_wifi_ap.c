@@ -12,6 +12,7 @@
 #include "usbh_modem_wifi.h"
 
 #include "app_wifi_ap.h"
+#include "app_config.h"
 
  /**
  * @brief 日志 TAG。
@@ -35,7 +36,16 @@ esp_err_t app_wifi_ap_init(char* dev_addr) {
     if (ap_netif == NULL) {
         return ESP_FAIL;
     }
-    modem_wifi_config_t modem_wifi_config = MODEM_WIFI_DEFAULT_CONFIG();
+    modem_wifi_config_t modem_wifi_config = {
+        .mode = WIFI_MODE_AP,
+        .ssid = APP_WIFI_SSID,
+        .password = APP_WIFI_PASSWORD,
+        .channel = CONFIG_MODEM_WIFI_CHANNEL,
+        .max_connection = CONFIG_MODEM_WIFI_MAX_STA,
+        .ssid_hidden = 0,
+        .authmode = WIFI_AUTH_WPA_WPA2_PSK,
+        .bandwidth = MODEM_WIFI_BANDWIFTH,
+    };
     esp_err_t ret = modem_wifi_set(&modem_wifi_config);
     return ret;
 }

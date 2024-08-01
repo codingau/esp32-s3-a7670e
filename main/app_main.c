@@ -124,16 +124,16 @@ void app_main_loop_task(void) {
 
         int pub_ret = app_mqtt_publish_msg(json);
         if (pub_ret >= 0) {// 推送成功。
-            app_led_set_value(0, 1, 0, 0, 1, 0);// 只闪绿色。
+            app_led_set_value(0, 1, 0, 0, 1, 0, app_main_data.gnss_valid);// 只闪绿色。
 
         } else {// 推送失败，写入缓存。
             app_sd_write_cache_file(json);
-            app_led_set_value(2, 0, 0, 0, 1, 0);// 红绿交替闪烁。
+            app_led_set_value(2, 0, 0, 0, 1, 0, app_main_data.gnss_valid);// 红绿交替闪烁。
         }
 
     } else {// 没有 MQTT，直接写入缓存文件。
         app_sd_write_cache_file(json);
-        app_led_set_value(2, 1, 0, 2, 1, 0);// 只闪黄色。
+        app_led_set_value(2, 1, 0, 2, 1, 0, app_main_data.gnss_valid);// 只闪黄色。
     }
 
     app_sd_fsync_log_file();// 把日志写入 SD 卡。
@@ -166,7 +166,7 @@ void app_main(void) {
     // 初始化守护任务。
     esp_err_t deamon_ret = app_deamon_init();
     if (deamon_ret != ESP_OK) {
-        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化守护任务：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化守护任务：OK。");
@@ -177,7 +177,7 @@ void app_main(void) {
     // 初始化 GPIO 执行模块。
     esp_err_t gpio_ret = app_gpio_init();
     if (gpio_ret != ESP_OK) {
-        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 GPIO：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 GPIO：OK。");
@@ -188,7 +188,7 @@ void app_main(void) {
     // 初始化 AT 命令执行模块。
     esp_err_t at_ret = app_at_init();
     if (at_ret != ESP_OK) {
-        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 AT：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 AT：OK。");
@@ -201,13 +201,13 @@ void app_main(void) {
     if (nvs_ret == ESP_ERR_NVS_NO_FREE_PAGES || nvs_ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {// 如果 NVS 分区空间不足或者发现新版本，需要擦除 NVS 分区并重试初始化。
         nvs_ret = nvs_flash_erase();
         if (nvs_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 擦除 NVS：失败！");
             return;
         }
         nvs_ret = nvs_flash_init();
         if (nvs_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 NVS：失败！");
             return;
         }
@@ -220,7 +220,7 @@ void app_main(void) {
     // 初始化事件循环，主要用于网络接口。
     esp_err_t event_loop_ret = esp_event_loop_create_default();
     if (event_loop_ret != ESP_OK) {
-        app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+        app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
         ESP_LOGE(TAG, "------ 初始化 EVENT_LOOP：失败！");
     } else {
         ESP_LOGI(TAG, "------ 初始化 EVENT_LOOP：OK。");
@@ -233,7 +233,7 @@ void app_main(void) {
     if (event_loop_ret == ESP_OK) {
         netif_ret = esp_netif_init();
         if (netif_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 NETIF：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 NETIF：OK。");
@@ -247,7 +247,7 @@ void app_main(void) {
     if (netif_ret == ESP_OK) {
         modem_ret = app_modem_init();
         if (modem_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 4G MODEM：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 4G MODEM：OK。");
@@ -260,7 +260,7 @@ void app_main(void) {
     if (netif_ret == ESP_OK) {
         esp_err_t wifi_ret = app_wifi_ap_init(app_main_data.dev_addr);
         if (wifi_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 WIFI 热点：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 WIFI 热点：OK。");
@@ -273,7 +273,7 @@ void app_main(void) {
     if (gpio_ret == ESP_OK) {
         esp_err_t ble_ret = app_ble_init();
         if (ble_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 BLE：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 BLE：OK。");
@@ -287,7 +287,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         sntp_ret = app_sntp_init();
         if (sntp_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 SNTP：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 SNTP：OK。");
@@ -301,7 +301,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         mqtt_ret = app_mqtt_init(app_main_data.dev_addr, strlen(app_main_data.dev_addr));
         if (mqtt_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 MQTT：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 MQTT：OK。");
@@ -314,7 +314,7 @@ void app_main(void) {
     if (modem_ret == ESP_OK) {
         esp_err_t ping_ret = app_ping_init();
         if (ping_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 PING：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 PING：OK。");
@@ -328,7 +328,7 @@ void app_main(void) {
     if (at_ret == ESP_OK) {
         esp_err_t gnss_ret = app_gnss_init();
         if (gnss_ret != ESP_OK) {
-            app_led_set_value(2, 1, 0, 2, 0, 0);// 黄红交替闪烁。
+            app_led_set_value(10, 10, 0, 10, 0, 0, 0);// 黄红交替闪烁。
             ESP_LOGE(TAG, "------ 初始化 GNSS：失败！");
         } else {
             ESP_LOGI(TAG, "------ 初始化 GNSS：OK。");

@@ -63,6 +63,11 @@ static _Atomic uint32_t app_led_green2 = ATOMIC_VAR_INIT(0);
 static _Atomic uint32_t app_led_blue2 = ATOMIC_VAR_INIT(0);
 
 /**
+ * @brief 颜色值。
+ */
+static _Atomic uint32_t app_led_gnss_valid = ATOMIC_VAR_INIT(0);
+
+/**
  * @brief led 显示任务。
  * @param param
  */
@@ -74,6 +79,7 @@ static void app_led_task(void* param) {
         int r2 = atomic_load(&app_led_red2);
         int g2 = atomic_load(&app_led_green2);
         int b2 = atomic_load(&app_led_blue2);
+        int gnss = atomic_load(&app_led_gnss_valid);
 
         ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, g, r, b));// 交换 r 和 g。
         ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
@@ -85,8 +91,13 @@ static void app_led_task(void* param) {
         vTaskDelay(pdMS_TO_TICKS(200));
         ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
         vTaskDelay(pdMS_TO_TICKS(100));
-        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 0, 0, 1));// 蓝色间隔。
-        ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+        if (gnss) {
+            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 0, 0, 1));// 蓝色间隔。
+            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+        } else {
+            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_set_pixel(led_strip, 0, 2, 2, 0));// 黄色间隔。
+            ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_refresh(led_strip));
+        }
         vTaskDelay(pdMS_TO_TICKS(200));
         ESP_ERROR_CHECK_WITHOUT_ABORT(led_strip_clear(led_strip));
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -102,13 +113,14 @@ static void app_led_task(void* param) {
  * @param green2
  * @param blue2
  */
-void app_led_set_value(uint32_t red, uint32_t green, uint32_t blue, uint32_t red2, uint32_t green2, uint32_t blue2) {
+void app_led_set_value(uint32_t red, uint32_t green, uint32_t blue, uint32_t red2, uint32_t green2, uint32_t blue2, uint32_t gnss_valid) {
     atomic_store(&app_led_red, red);
     atomic_store(&app_led_green, green);
     atomic_store(&app_led_blue, blue);
     atomic_store(&app_led_red2, red2);
     atomic_store(&app_led_green2, green2);
     atomic_store(&app_led_blue2, blue2);
+    atomic_store(&app_led_gnss_valid, gnss_valid);
 }
 
 /**
@@ -135,6 +147,6 @@ esp_err_t app_led_init(void) {
     if (ret == ESP_OK) {
         xTaskCreate(app_led_task, "app_led_task", 2048, NULL, 10, NULL);// 启动 led 显示任务。
     }
-    app_led_set_value(2, 1, 0, 2, 1, 0);// 启动的时候，连续闪烁黄灯。
+    app_led_set_value(10, 10, 0, 10, 10, 0, 0);// 启动的时候，连续闪烁黄灯，亮度偏高设置 10。
     return ret;
 }
